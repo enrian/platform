@@ -459,7 +459,7 @@ func sendPushNotification(post *model.Post, user *model.User, channel *model.Cha
 	userLocale := utils.GetUserTranslations(user.Locale)
 
 	msg := model.PushNotification{}
-	if badge := <-Srv.Store.User().GetUnreadCount(user.Id); badge.Err != nil {
+	if badge := <-Srv.Store.User().GetUnreadCountForChannel(user.Id, channel.Id); badge.Err != nil {
 		msg.Badge = 1
 		l4g.Error(utils.T("store.sql_user.get_unread_count.app_error"), user.Id, badge.Err)
 	} else {
@@ -486,6 +486,7 @@ func sendPushNotification(post *model.Post, user *model.User, channel *model.Cha
 		} else {
 			msg.Message = senderName + userLocale("api.post.send_notifications_and_forget.push_non_mention") + channelName
 		}
+		msg.Message = "You have a new message."
 	}
 
 	l4g.Debug(utils.T("api.post.send_notifications_and_forget.push_notification.debug"), msg.DeviceId, msg.Message)
@@ -513,7 +514,7 @@ func ClearPushNotification(userId string, channelId string) *model.AppError {
 	msg.Type = model.PUSH_TYPE_CLEAR
 	msg.ChannelId = channelId
 	msg.ContentAvailable = 0
-	if badge := <-Srv.Store.User().GetUnreadCount(userId); badge.Err != nil {
+	if badge := <-Srv.Store.User().GetUnreadCountForChannel(userId, ChannelId); badge.Err != nil {
 		msg.Badge = 0
 		l4g.Error(utils.T("store.sql_user.get_unread_count.app_error"), userId, badge.Err)
 	} else {
@@ -605,13 +606,17 @@ func GetExplicitMentions(message string, keywords map[string][]string) (map[stri
 	systemMentions := map[string]bool{"@here": true, "@channel": true, "@all": true}
 	hereMentioned := false
 	allMentioned := false
-	channelMentioned := false
+	channelMentioned := true // TaskMe
 
 	addMentionedUsers := func(ids []string) {
 		for _, id := range ids {
 			mentioned[id] = true
 		}
 	}
+
+	// TaskMe
+	ids, _ := keywords["@channel"]
+	addMentionedUsers(ids)
 
 	for _, word := range strings.Fields(message) {
 		isMention := false
