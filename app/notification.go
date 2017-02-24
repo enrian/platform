@@ -514,7 +514,7 @@ func ClearPushNotification(userId string, channelId string) *model.AppError {
 	msg.Type = model.PUSH_TYPE_CLEAR
 	msg.ChannelId = channelId
 	msg.ContentAvailable = 0
-	if badge := <-Srv.Store.User().GetUnreadCountForChannel(userId, ChannelId); badge.Err != nil {
+	if badge := <-Srv.Store.User().GetUnreadCountForChannel(userId, channelId); badge.Err != nil {
 		msg.Badge = 0
 		l4g.Error(utils.T("store.sql_user.get_unread_count.app_error"), userId, badge.Err)
 	} else {
