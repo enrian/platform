@@ -1,4 +1,4 @@
-// Copyright (c) 2016 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2016-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 package main
@@ -18,6 +18,7 @@ import (
 	"github.com/mattermost/platform/model"
 	"github.com/mattermost/platform/utils"
 	"github.com/mattermost/platform/web"
+	"github.com/mattermost/platform/wsapi"
 	"github.com/spf13/cobra"
 )
 
@@ -34,6 +35,8 @@ func runServerCmd(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	utils.CfgDisableConfigWatch, _ = cmd.Flags().GetBool("disableconfigwatch")
 
 	runServer(config)
 	return nil
@@ -62,8 +65,10 @@ func runServer(configFileLocation string) {
 	app.NewServer()
 	app.InitStores()
 	api.InitRouter()
+	wsapi.InitRouter()
 	api4.InitApi(false)
 	api.InitApi()
+	wsapi.InitApi()
 	web.InitWeb()
 
 	if model.BuildEnterpriseReady == "true" {
@@ -78,6 +83,8 @@ func runServer(configFileLocation string) {
 	if !utils.IsLicensed {
 		utils.Cfg.TeamSettings.MaxNotificationsPerChannel = &MaxNotificationsPerChannelDefault
 	}
+
+	app.ReloadConfig()
 
 	resetStatuses()
 

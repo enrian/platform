@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2017-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 package app
@@ -136,9 +136,10 @@ func SaveConfig(cfg *model.Config) *model.AppError {
 		return model.NewLocAppError("saveConfig", "ent.cluster.save_config.error", nil, "")
 	}
 
-	//oldCfg := utils.Cfg
+	utils.DisableConfigWatch()
 	utils.SaveConfig(utils.CfgFileName, cfg)
 	utils.LoadConfig(utils.CfgFileName)
+	utils.EnableConfigWatch()
 
 	if einterfaces.GetMetricsInterface() != nil {
 		if *utils.Cfg.MetricsSettings.Enable {
@@ -148,6 +149,7 @@ func SaveConfig(cfg *model.Config) *model.AppError {
 		}
 	}
 
+	// oldCfg := utils.Cfg
 	// Future feature is to sync the configuration files
 	// if einterfaces.GetClusterInterface() != nil {
 	// 	err := einterfaces.GetClusterInterface().ConfigChanged(cfg, oldCfg, true)

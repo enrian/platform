@@ -1,4 +1,4 @@
-// Copyright (c) 2016 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2016-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 package app
@@ -88,7 +88,7 @@ func (me *EchoProvider) DoCommand(args *model.CommandArgs, message string) *mode
 
 		time.Sleep(time.Duration(delay) * time.Second)
 
-		if _, err := CreatePost(post, args.TeamId, true, args.SiteURL); err != nil {
+		if _, err := CreatePost(post, args.TeamId, true); err != nil {
 			l4g.Error(args.T("api.command_echo.create.app_error"), err)
 		}
 	}()

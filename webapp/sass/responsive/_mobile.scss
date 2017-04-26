@@ -1,6 +1,10 @@
 @charset 'UTF-8';
 
 @media screen and (max-width: 768px) {
+    .post-code {
+        word-wrap: normal;
+    }
+
     .table-responsive {
         border: none;
     }
@@ -29,14 +33,9 @@
         .msg-typing {
             display: none;
         }
-    }
 
-    .post-create__container{
-        .post-create-body {
-            .icon__postcontent_picker {
-                display:none;
-                top: -7px;
-            }
+        .icon--emoji-picker {
+            display: none;
         }
     }
 
@@ -236,6 +235,10 @@
             }
         }
 
+        .reacticon__container {
+            display: none;
+        }
+
         .post__dropdown {
             display: inline-block;
             height: 28px;
@@ -257,6 +260,18 @@
         }
 
         &.post--compact {
+            .post__img {
+                padding-top: 0;
+            }
+
+            &.same--root {
+                &.same--user {
+                    .post__header {
+                        height: auto;
+                    }
+                }
+            }
+
             .status-wrapper {
                 &:after {
                     bottom: 3px;

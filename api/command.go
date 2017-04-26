@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 package api
@@ -34,7 +34,7 @@ func InitCommand() {
 }
 
 func listCommands(c *Context, w http.ResponseWriter, r *http.Request) {
-	commands, err := app.ListCommands(c.TeamId, c.T)
+	commands, err := app.ListAutocompleteCommands(c.TeamId, c.T)
 	if err != nil {
 		c.Err = err
 		return
@@ -66,7 +66,7 @@ func executeCommand(c *Context, w http.ResponseWriter, r *http.Request) {
 	commandArgs.UserId = c.Session.UserId
 	commandArgs.T = c.T
 	commandArgs.Session = c.Session
-	commandArgs.SiteURL = c.GetSiteURL()
+	commandArgs.SiteURL = c.GetSiteURLHeader()
 
 	response, err := app.ExecuteCommand(commandArgs)
 	if err != nil {

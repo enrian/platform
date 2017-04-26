@@ -46,7 +46,7 @@
             border-radius: 4px;
             border-style: solid;
             border-width: 1px;
-            margin: 0 0 5px 0;
+            margin: 5px 0;
             padding: 2px 5px;
         }
 
@@ -74,12 +74,13 @@
             }
 
             &.attachment__container--opengraph {
-                padding-left: 5px;
-                border-left-style: none;
                 border-left-color: transparent;
+                border-left-style: none;
                 display: table;
                 margin: 0;
                 padding-bottom: 13px;
+                padding-left: 5px;
+                table-layout: fixed;
                 width: 100%;
 
                 div {
@@ -125,9 +126,10 @@
 
         .attachment__image__container--openraph {
             display: table-cell;
-            vertical-align: top;
-            padding-top: 3px;
             padding-left: 15px;
+            padding-top: 3px;
+            vertical-align: top;
+            width: 95px;
         }
 
         .attachment__image {
@@ -138,7 +140,7 @@
             &.attachment__image--openraph {
                 margin-bottom: 0;
                 max-height: 80px;
-                max-width: 200px;
+                max-width: 100%;
 
                 &.loading {
                     height: 80px;

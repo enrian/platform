@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 import UserProfile from './user_profile.jsx';
@@ -14,14 +14,17 @@ import UserStore from 'stores/user_store.jsx';
 import TeamStore from 'stores/team_store.jsx';
 
 import * as GlobalActions from 'actions/global_actions.jsx';
-import {flagPost, unflagPost, pinPost, unpinPost} from 'actions/post_actions.jsx';
+import {flagPost, unflagPost, pinPost, unpinPost, addReaction} from 'actions/post_actions.jsx';
 
 import * as Utils from 'utils/utils.jsx';
 import * as PostUtils from 'utils/post_utils.jsx';
 
+import EmojiPicker from 'components/emoji_picker/emoji_picker.jsx';
+import ReactDOM from 'react-dom';
+
 import Constants from 'utils/constants.jsx';
 import DelayedAction from 'utils/delayed_action.jsx';
-import {Tooltip, OverlayTrigger} from 'react-bootstrap';
+import {Tooltip, OverlayTrigger, Overlay} from 'react-bootstrap';
 
 import {FormattedMessage} from 'react-intl';
 
@@ -37,6 +40,8 @@ export default class RhsRootPost extends React.Component {
         this.unflagPost = this.unflagPost.bind(this);
         this.pinPost = this.pinPost.bind(this);
         this.unpinPost = this.unpinPost.bind(this);
+        this.reactEmojiClick = this.reactEmojiClick.bind(this);
+        this.emojiPickerClick = this.emojiPickerClick.bind(this);
 
         this.canEdit = false;
         this.canDelete = false;
@@ -45,7 +50,9 @@ export default class RhsRootPost extends React.Component {
         this.state = {
             currentTeamDisplayName: TeamStore.getCurrent().name,
             width: '',
-            height: ''
+            height: '',
+            showRHSEmojiPicker: false,
+            testStateObj: true
         };
     }
 
@@ -70,7 +77,7 @@ export default class RhsRootPost extends React.Component {
         this.canEdit = false;
     }
 
-    shouldComponentUpdate(nextProps) {
+    shouldComponentUpdate(nextProps, nextState) {
         if (nextProps.status !== this.props.status) {
             return true;
         }
@@ -104,6 +111,10 @@ export default class RhsRootPost extends React.Component {
         }
 
         if (!Utils.areObjectsEqual(nextProps.currentUser, this.props.currentUser)) {
+            return true;
+        }
+
+        if (this.state.showRHSEmojiPicker !== nextState.showRHSEmojiPicker) {
             return true;
         }
 
@@ -155,6 +166,16 @@ export default class RhsRootPost extends React.Component {
         unpinPost(this.props.post.channel_id, this.props.post.id);
     }
 
+    emojiPickerClick() {
+        this.setState({showRHSEmojiPicker: !this.state.showRHSEmojiPicker});
+    }
+
+    reactEmojiClick(emoji) {
+        const emojiName = emoji.name || emoji.aliases[0];
+        addReaction(this.props.post.channel_id, this.props.post.id, emojiName);
+        this.setState({showRHSEmojiPicker: false});
+    }
+
     render() {
         const post = this.props.post;
         const user = this.props.user;
@@ -165,6 +186,10 @@ export default class RhsRootPost extends React.Component {
 
         this.canDelete = PostUtils.canDeletePost(post);
         this.canEdit = PostUtils.canEditPost(post, this.editDisableAction);
+
+        const isEphemeral = Utils.isPostEphemeral(post);
+        const isPending = post.state === Constants.POST_FAILED || post.state === Constants.POST_LOADING;
+        const isSystemMessage = PostUtils.isSystemMessage(post);
 
         var type = 'Post';
         if (post.root_id.length > 0) {
@@ -177,7 +202,7 @@ export default class RhsRootPost extends React.Component {
         }
 
         var systemMessageClass = '';
-        if (PostUtils.isSystemMessage(post)) {
+        if (isSystemMessage) {
             systemMessageClass = 'post--system';
         }
 
@@ -193,6 +218,41 @@ export default class RhsRootPost extends React.Component {
             } else {
                 channelName = channel.display_name;
             }
+        }
+
+        let react;
+        let reactOverlay;
+
+        if (!isEphemeral && !isPending && !isSystemMessage && Utils.isFeatureEnabled(Constants.PRE_RELEASE_FEATURES.EMOJI_PICKER_PREVIEW)) {
+            react = (
+                <span>
+                    <a
+                        href='#'
+                        className='reacticon__container reaction'
+                        onClick={this.emojiPickerClick}
+                        ref='rhs_root_reacticon'
+                    ><i className='fa fa-smile-o'/>
+                    </a>
+                </span>
+
+            );
+            reactOverlay = (
+                <Overlay
+                    id='rhs_react_overlay'
+                    show={this.state.showRHSEmojiPicker}
+                    placement='bottom'
+                    rootClose={true}
+                    container={this}
+                    onHide={() => this.setState({showRHSEmojiPicker: false})}
+                    target={() => ReactDOM.findDOMNode(this.refs.rhs_root_reacticon)}
+
+                >
+                    <EmojiPicker
+                        onEmojiClick={this.reactEmojiClick}
+                        pickerLocation='react'
+                    />
+                </Overlay>
+            );
         }
 
         var dropdownContents = [];
@@ -235,57 +295,59 @@ export default class RhsRootPost extends React.Component {
             }
         }
 
-        dropdownContents.push(
-            <li
-                key='rhs-root-permalink'
-                role='presentation'
-            >
-                <a
-                    href='#'
-                    onClick={this.handlePermalink}
+        if (!isSystemMessage) {
+            dropdownContents.push(
+                <li
+                    key='rhs-root-permalink'
+                    role='presentation'
                 >
-                    <FormattedMessage
-                        id='rhs_root.permalink'
-                        defaultMessage='Permalink'
-                    />
-                </a>
-            </li>
-        );
+                    <a
+                        href='#'
+                        onClick={this.handlePermalink}
+                    >
+                        <FormattedMessage
+                            id='rhs_root.permalink'
+                            defaultMessage='Permalink'
+                        />
+                    </a>
+                </li>
+            );
 
-        if (post.is_pinned) {
-            dropdownContents.push(
-                <li
-                    key='rhs-root-unpin'
-                    role='presentation'
-                >
-                    <a
-                        href='#'
-                        onClick={this.unpinPost}
+            if (post.is_pinned) {
+                dropdownContents.push(
+                    <li
+                        key='rhs-root-unpin'
+                        role='presentation'
                     >
-                        <FormattedMessage
-                            id='rhs_root.unpin'
-                            defaultMessage='Un-pin from channel'
-                        />
-                    </a>
-                </li>
-            );
-        } else {
-            dropdownContents.push(
-                <li
-                    key='rhs-root-pin'
-                    role='presentation'
-                >
-                    <a
-                        href='#'
-                        onClick={this.pinPost}
+                        <a
+                            href='#'
+                            onClick={this.unpinPost}
+                        >
+                            <FormattedMessage
+                                id='rhs_root.unpin'
+                                defaultMessage='Un-pin from channel'
+                            />
+                        </a>
+                    </li>
+                );
+            } else {
+                dropdownContents.push(
+                    <li
+                        key='rhs-root-pin'
+                        role='presentation'
                     >
-                        <FormattedMessage
-                            id='rhs_root.pin'
-                            defaultMessage='Pin to channel'
-                        />
-                    </a>
-                </li>
-            );
+                        <a
+                            href='#'
+                            onClick={this.pinPost}
+                        >
+                            <FormattedMessage
+                                id='rhs_root.pin'
+                                defaultMessage='Pin to channel'
+                            />
+                        </a>
+                    </li>
+                );
+            }
         }
 
         if (this.canDelete) {
@@ -380,7 +442,7 @@ export default class RhsRootPost extends React.Component {
             }
 
             botIndicator = <li className='col col__name bot-indicator'>{'BOT'}</li>;
-        } else if (PostUtils.isSystemMessage(post)) {
+        } else if (isSystemMessage) {
             userProfile = (
                 <UserProfile
                     user={{}}
@@ -422,7 +484,7 @@ export default class RhsRootPost extends React.Component {
             );
         }
 
-        if (PostUtils.isSystemMessage(post)) {
+        if (isSystemMessage) {
             profilePic = (
                 <span
                     className='icon'
@@ -547,7 +609,9 @@ export default class RhsRootPost extends React.Component {
                                 </OverlayTrigger>
                             </li>
                             <li className='col col__reply'>
+                                {reactOverlay}
                                 {rootOptions}
+                                {react}
                             </li>
                         </ul>
                         <div className='post__body'>
@@ -559,10 +623,7 @@ export default class RhsRootPost extends React.Component {
                                 />
                             </div>
                             {fileAttachment}
-                            <ReactionListContainer
-                                post={post}
-                                currentUserId={this.props.currentUser.id}
-                            />
+                            <ReactionListContainer post={post}/>
                         </div>
                     </div>
                 </div>

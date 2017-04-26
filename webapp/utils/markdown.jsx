@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 import * as TextFormatting from './text_formatting.jsx';
@@ -162,6 +162,10 @@ class MattermostMarkdownRenderer extends marked.Renderer {
 
     link(href, title, text) {
         let outHref = href;
+
+        if (this.formattingOptions.linkFilter && !this.formattingOptions.linkFilter(outHref)) {
+            return text;
+        }
 
         try {
             let unescaped = unescape(href);

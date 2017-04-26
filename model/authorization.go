@@ -1,4 +1,4 @@
-// Copyright (c) 2016 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2016-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 package model
@@ -57,6 +57,7 @@ var PERMISSION_CREATE_TEAM *Permission
 var PERMISSION_MANAGE_TEAM *Permission
 var PERMISSION_IMPORT_TEAM *Permission
 var PERMISSION_VIEW_TEAM *Permission
+var PERMISSION_LIST_USERS_WITHOUT_TEAM *Permission
 
 // General permission that encompases all system admin functions
 // in the future this could be broken up to allow access to some
@@ -286,6 +287,11 @@ func InitalizePermissions() {
 		"authentication.permissions.view_team.name",
 		"authentication.permissions.view_team.description",
 	}
+	PERMISSION_LIST_USERS_WITHOUT_TEAM = &Permission{
+		"list_users_without_team",
+		"authentication.permisssions.list_users_without_team.name",
+		"authentication.permisssions.list_users_without_team.description",
+	}
 }
 
 func InitalizeRoles() {
@@ -299,7 +305,6 @@ func InitalizeRoles() {
 		[]string{
 			PERMISSION_READ_CHANNEL.Id,
 			PERMISSION_MANAGE_PUBLIC_CHANNEL_MEMBERS.Id,
-			PERMISSION_MANAGE_PRIVATE_CHANNEL_MEMBERS.Id,
 			PERMISSION_UPLOAD_FILE.Id,
 			PERMISSION_GET_PUBLIC_LINK.Id,
 			PERMISSION_CREATE_POST.Id,
@@ -343,7 +348,6 @@ func InitalizeRoles() {
 		"authentication.roles.team_admin.description",
 		[]string{
 			PERMISSION_EDIT_OTHERS_POSTS.Id,
-			PERMISSION_ADD_USER_TO_TEAM.Id,
 			PERMISSION_REMOVE_USER_FROM_TEAM.Id,
 			PERMISSION_MANAGE_TEAM.Id,
 			PERMISSION_IMPORT_TEAM.Id,
@@ -365,7 +369,6 @@ func InitalizeRoles() {
 			PERMISSION_CREATE_DIRECT_CHANNEL.Id,
 			PERMISSION_CREATE_GROUP_CHANNEL.Id,
 			PERMISSION_PERMANENT_DELETE_USER.Id,
-			PERMISSION_MANAGE_OAUTH.Id,
 		},
 	}
 	BuiltInRoles[ROLE_SYSTEM_USER.Id] = ROLE_SYSTEM_USER
@@ -400,6 +403,8 @@ func InitalizeRoles() {
 							PERMISSION_DELETE_POST.Id,
 							PERMISSION_DELETE_OTHERS_POSTS.Id,
 							PERMISSION_CREATE_TEAM.Id,
+							PERMISSION_ADD_USER_TO_TEAM.Id,
+							PERMISSION_LIST_USERS_WITHOUT_TEAM.Id,
 						},
 						ROLE_TEAM_USER.Permissions...,
 					),

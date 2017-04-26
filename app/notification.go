@@ -1,4 +1,4 @@
-// Copyright (c) 2016 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2016-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 package app
@@ -24,7 +24,7 @@ import (
 	"github.com/nicksnyder/go-i18n/i18n"
 )
 
-func SendNotifications(post *model.Post, team *model.Team, channel *model.Channel, sender *model.User, siteURL string) ([]string, *model.AppError) {
+func SendNotifications(post *model.Post, team *model.Team, channel *model.Channel, sender *model.User) ([]string, *model.AppError) {
 	pchan := Srv.Store.User().GetAllProfilesInChannel(channel.Id, true)
 	cmnchan := Srv.Store.Channel().GetAllChannelMembersNotifyPropsForChannel(channel.Id, true)
 	var fchan store.StoreChannel
@@ -95,7 +95,7 @@ func SendNotifications(post *model.Post, team *model.Team, channel *model.Channe
 
 		if len(potentialOtherMentions) > 0 {
 			if result := <-Srv.Store.User().GetProfilesByUsernames(potentialOtherMentions, team.Id); result.Err == nil {
-				outOfChannelMentions := result.Data.(map[string]*model.User)
+				outOfChannelMentions := result.Data.([]*model.User)
 				go sendOutOfChannelMentions(sender, post, team.Id, outOfChannelMentions)
 			}
 		}
@@ -171,7 +171,7 @@ func SendNotifications(post *model.Post, team *model.Team, channel *model.Channe
 			}
 
 			if userAllowsEmails && status.Status != model.STATUS_ONLINE && profileMap[id].DeleteAt == 0 {
-				sendNotificationEmail(post, profileMap[id], channel, team, senderName, sender, siteURL)
+				sendNotificationEmail(post, profileMap[id], channel, team, senderName, sender)
 			}
 		}
 	}
@@ -317,7 +317,7 @@ func SendNotifications(post *model.Post, team *model.Team, channel *model.Channe
 	return mentionedUsersList, nil
 }
 
-func sendNotificationEmail(post *model.Post, user *model.User, channel *model.Channel, team *model.Team, senderName string, sender *model.User, siteURL string) *model.AppError {
+func sendNotificationEmail(post *model.Post, user *model.User, channel *model.Channel, team *model.Team, senderName string, sender *model.User) *model.AppError {
 	if channel.IsGroupOrDirect() {
 		if result := <-Srv.Store.Team().GetTeamsByUserId(user.Id); result.Err != nil {
 			return result.Err
@@ -367,7 +367,7 @@ func sendNotificationEmail(post *model.Post, user *model.User, channel *model.Ch
 	var mailTemplate string
 	var mailParameters map[string]interface{}
 
-	teamURL := siteURL + "/" + team.Name
+	teamURL := utils.GetSiteURL() + "/" + team.Name
 	tm := time.Unix(post.CreateAt/1000, 0)
 
 	userLocale := utils.GetUserTranslations(user.Locale)
@@ -405,7 +405,7 @@ func sendNotificationEmail(post *model.Post, user *model.User, channel *model.Ch
 	subject := fmt.Sprintf("[%v] %v", utils.Cfg.TeamSettings.SiteName, userLocale(mailTemplate, mailParameters))
 
 	bodyPage := utils.NewHTMLTemplate("post_body", user.Locale)
-	bodyPage.Props["SiteURL"] = siteURL
+	bodyPage.Props["SiteURL"] = utils.GetSiteURL()
 	bodyPage.Props["PostMessage"] = GetMessageForNotification(post, userLocale)
 	if team.Name != "select_team" {
 		bodyPage.Props["TeamLink"] = teamURL + "/pl/" + post.Id
@@ -592,13 +592,13 @@ func getMobileAppSessions(userId string) ([]*model.Session, *model.AppError) {
 	}
 }
 
-func sendOutOfChannelMentions(sender *model.User, post *model.Post, teamId string, profiles map[string]*model.User) *model.AppError {
-	if len(profiles) == 0 {
+func sendOutOfChannelMentions(sender *model.User, post *model.Post, teamId string, users []*model.User) *model.AppError {
+	if len(users) == 0 {
 		return nil
 	}
 
 	var usernames []string
-	for _, user := range profiles {
+	for _, user := range users {
 		usernames = append(usernames, user.Username)
 	}
 	sort.Strings(usernames)

@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2017-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 package api4
@@ -66,5 +66,6 @@ func uploadBrandImage(c *Context, w http.ResponseWriter, r *http.Request) {
 
 	c.LogAudit("")
 
+	w.WriteHeader(http.StatusCreated)
 	ReturnStatusOK(w)
 }

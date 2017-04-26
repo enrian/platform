@@ -1,4 +1,4 @@
-// Copyright (c) 2016 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2016-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 package api
@@ -311,7 +311,7 @@ func adminResetPassword(c *Context, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := app.UpdatePasswordByUserIdSendEmail(userId, newPassword, c.T("api.user.reset_password.method"), c.GetSiteURL()); err != nil {
+	if err := app.UpdatePasswordByUserIdSendEmail(userId, newPassword, c.T("api.user.reset_password.method")); err != nil {
 		c.Err = err
 		return
 	}

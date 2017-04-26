@@ -1,4 +1,4 @@
-// Copyright (c) 2016 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2016-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 import React from 'react';
@@ -44,7 +44,7 @@ export default class EmojiPickerPreview extends React.Component {
                     <div className='emoji-picker__preview-image-box'>
                         {previewImage}
                     </div>
-                    <div className='emoji-picker__preview-image-box'>
+                    <div className='emoji-picker__preview-image-label-box'>
                         <span className='emoji-picker__preview-name'>{name}</span>
                         <span
                             className='emoji-picker__preview-aliases'

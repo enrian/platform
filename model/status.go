@@ -1,4 +1,4 @@
-// Copyright (c) 2016 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2016-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 package model
@@ -40,6 +40,26 @@ func StatusFromJson(data io.Reader) *Status {
 	err := decoder.Decode(&o)
 	if err == nil {
 		return &o
+	} else {
+		return nil
+	}
+}
+
+func StatusListToJson(u []*Status) string {
+	b, err := json.Marshal(u)
+	if err != nil {
+		return ""
+	} else {
+		return string(b)
+	}
+}
+
+func StatusListFromJson(data io.Reader) []*Status {
+	decoder := json.NewDecoder(data)
+	var statuses []*Status
+	err := decoder.Decode(&statuses)
+	if err == nil {
+		return statuses
 	} else {
 		return nil
 	}

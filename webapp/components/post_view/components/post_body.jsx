@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 import UserStore from 'stores/user_store.jsx';
@@ -196,10 +196,7 @@ export default class PostBody extends React.Component {
                 <div className={'post__body ' + mentionHighlightClass}>
                     {messageWithAdditionalContent}
                     {fileAttachmentHolder}
-                    <ReactionListContainer
-                        post={post}
-                        currentUserId={this.props.currentUser.id}
-                    />
+                    <ReactionListContainer post={post}/>
                 </div>
             </div>
         );

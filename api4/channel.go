@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2017-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 package api4
@@ -17,10 +17,12 @@ func InitChannel() {
 
 	BaseRoutes.Channels.Handle("", ApiSessionRequired(createChannel)).Methods("POST")
 	BaseRoutes.Channels.Handle("/direct", ApiSessionRequired(createDirectChannel)).Methods("POST")
+	BaseRoutes.Channels.Handle("/group", ApiSessionRequired(createGroupChannel)).Methods("POST")
 	BaseRoutes.Channels.Handle("/members/{user_id:[A-Za-z0-9]+}/view", ApiSessionRequired(viewChannel)).Methods("POST")
 
-	BaseRoutes.Team.Handle("/channels", ApiSessionRequired(getPublicChannelsForTeam)).Methods("GET")
-	BaseRoutes.Team.Handle("/channels/search", ApiSessionRequired(searchChannelsForTeam)).Methods("POST")
+	BaseRoutes.ChannelsForTeam.Handle("", ApiSessionRequired(getPublicChannelsForTeam)).Methods("GET")
+	BaseRoutes.ChannelsForTeam.Handle("/ids", ApiSessionRequired(getPublicChannelsByIdsForTeam)).Methods("POST")
+	BaseRoutes.ChannelsForTeam.Handle("/search", ApiSessionRequired(searchChannelsForTeam)).Methods("POST")
 	BaseRoutes.User.Handle("/teams/{team_id:[A-Za-z0-9]+}/channels", ApiSessionRequired(getChannelsForTeamForUser)).Methods("GET")
 
 	BaseRoutes.Channel.Handle("", ApiSessionRequired(getChannel)).Methods("GET")
@@ -28,6 +30,7 @@ func InitChannel() {
 	BaseRoutes.Channel.Handle("/patch", ApiSessionRequired(patchChannel)).Methods("PUT")
 	BaseRoutes.Channel.Handle("", ApiSessionRequired(deleteChannel)).Methods("DELETE")
 	BaseRoutes.Channel.Handle("/stats", ApiSessionRequired(getChannelStats)).Methods("GET")
+	BaseRoutes.Channel.Handle("/pinned", ApiSessionRequired(getPinnedPosts)).Methods("GET")
 
 	BaseRoutes.ChannelForUser.Handle("/unread", ApiSessionRequired(getChannelUnread)).Methods("GET")
 
@@ -41,6 +44,7 @@ func InitChannel() {
 	BaseRoutes.ChannelMember.Handle("", ApiSessionRequired(getChannelMember)).Methods("GET")
 	BaseRoutes.ChannelMember.Handle("", ApiSessionRequired(removeChannelMember)).Methods("DELETE")
 	BaseRoutes.ChannelMember.Handle("/roles", ApiSessionRequired(updateChannelMemberRoles)).Methods("PUT")
+	BaseRoutes.ChannelMember.Handle("/notify_props", ApiSessionRequired(updateChannelMemberNotifyProps)).Methods("PUT")
 }
 
 func createChannel(c *Context, w http.ResponseWriter, r *http.Request) {
@@ -135,7 +139,7 @@ func updateChannel(c *Context, w http.ResponseWriter, r *http.Request) {
 		return
 	} else {
 		if oldChannelDisplayName != channel.DisplayName {
-			if err := app.PostUpdateChannelDisplayNameMessage(c.Session.UserId, channel.Id, c.Params.TeamId, oldChannelDisplayName, channel.DisplayName, c.GetSiteURL()); err != nil {
+			if err := app.PostUpdateChannelDisplayNameMessage(c.Session.UserId, channel.Id, c.Params.TeamId, oldChannelDisplayName, channel.DisplayName); err != nil {
 				l4g.Error(err.Error())
 			}
 		}
@@ -227,6 +231,43 @@ func createDirectChannel(c *Context, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func createGroupChannel(c *Context, w http.ResponseWriter, r *http.Request) {
+	userIds := model.ArrayFromJson(r.Body)
+
+	if len(userIds) == 0 {
+		c.SetInvalidParam("user_ids")
+		return
+	}
+
+	found := false
+	for _, id := range userIds {
+		if len(id) != 26 {
+			c.SetInvalidParam("user_id")
+			return
+		}
+		if id == c.Session.UserId {
+			found = true
+		}
+	}
+
+	if !found {
+		userIds = append(userIds, c.Session.UserId)
+	}
+
+	if !app.SessionHasPermissionTo(c.Session, model.PERMISSION_CREATE_GROUP_CHANNEL) {
+		c.SetPermissionError(model.PERMISSION_CREATE_GROUP_CHANNEL)
+		return
+	}
+
+	if groupChannel, err := app.CreateGroupChannel(userIds); err != nil {
+		c.Err = err
+		return
+	} else {
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(groupChannel.ToJson()))
+	}
+}
+
 func getChannel(c *Context, w http.ResponseWriter, r *http.Request) {
 	c.RequireChannelId()
 	if c.Err != nil {
@@ -302,6 +343,28 @@ func getChannelStats(c *Context, w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(stats.ToJson()))
 }
 
+func getPinnedPosts(c *Context, w http.ResponseWriter, r *http.Request) {
+	c.RequireChannelId()
+	if c.Err != nil {
+		return
+	}
+
+	if !app.SessionHasPermissionToChannel(c.Session, c.Params.ChannelId, model.PERMISSION_READ_CHANNEL) {
+		c.SetPermissionError(model.PERMISSION_READ_CHANNEL)
+		return
+	}
+
+	if posts, err := app.GetPinnedPosts(c.Params.ChannelId); err != nil {
+		c.Err = err
+		return
+	} else if HandleEtag(posts.Etag(), "Get Pinned Posts", w, r) {
+		return
+	} else {
+		w.Header().Set(model.HEADER_ETAG_SERVER, posts.Etag())
+		w.Write([]byte(posts.ToJson()))
+	}
+}
+
 func getPublicChannelsForTeam(c *Context, w http.ResponseWriter, r *http.Request) {
 	c.RequireTeamId()
 	if c.Err != nil {
@@ -319,6 +382,38 @@ func getPublicChannelsForTeam(c *Context, w http.ResponseWriter, r *http.Request
 	} else {
 		w.Write([]byte(channels.ToJson()))
 		return
+	}
+}
+
+func getPublicChannelsByIdsForTeam(c *Context, w http.ResponseWriter, r *http.Request) {
+	c.RequireTeamId()
+	if c.Err != nil {
+		return
+	}
+
+	channelIds := model.ArrayFromJson(r.Body)
+	if len(channelIds) == 0 {
+		c.SetInvalidParam("channel_ids")
+		return
+	}
+
+	for _, cid := range channelIds {
+		if len(cid) != 26 {
+			c.SetInvalidParam("channel_id")
+			return
+		}
+	}
+
+	if !app.SessionHasPermissionToTeam(c.Session, c.Params.TeamId, model.PERMISSION_VIEW_TEAM) {
+		c.SetPermissionError(model.PERMISSION_VIEW_TEAM)
+		return
+	}
+
+	if channels, err := app.GetPublicChannelsByIdsForTeam(c.Params.TeamId, channelIds); err != nil {
+		c.Err = err
+		return
+	} else {
+		w.Write([]byte(channels.ToJson()))
 	}
 }
 
@@ -402,7 +497,7 @@ func deleteChannel(c *Context, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = app.DeleteChannel(channel, c.Session.UserId, c.GetSiteURL())
+	err = app.DeleteChannel(channel, c.Session.UserId)
 	if err != nil {
 		c.Err = err
 		return
@@ -604,6 +699,32 @@ func updateChannelMemberRoles(c *Context, w http.ResponseWriter, r *http.Request
 	ReturnStatusOK(w)
 }
 
+func updateChannelMemberNotifyProps(c *Context, w http.ResponseWriter, r *http.Request) {
+	c.RequireChannelId().RequireUserId()
+	if c.Err != nil {
+		return
+	}
+
+	props := model.MapFromJson(r.Body)
+	if props == nil {
+		c.SetInvalidParam("notify_props")
+		return
+	}
+
+	if !app.SessionHasPermissionToUser(c.Session, c.Params.UserId) {
+		c.SetPermissionError(model.PERMISSION_EDIT_OTHER_USERS)
+		return
+	}
+
+	_, err := app.UpdateChannelMemberNotifyProps(props, c.Params.ChannelId, c.Params.UserId)
+	if err != nil {
+		c.Err = err
+		return
+	}
+
+	ReturnStatusOK(w)
+}
+
 func addChannelMember(c *Context, w http.ResponseWriter, r *http.Request) {
 	c.RequireChannelId()
 	if c.Err != nil {
@@ -650,11 +771,12 @@ func addChannelMember(c *Context, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if cm, err := app.AddChannelMember(member.UserId, channel, c.Session.UserId, c.GetSiteURL()); err != nil {
+	if cm, err := app.AddChannelMember(member.UserId, channel, c.Session.UserId); err != nil {
 		c.Err = err
 		return
 	} else {
 		c.LogAudit("name=" + channel.Name + " user_id=" + cm.UserId)
+		w.WriteHeader(http.StatusCreated)
 		w.Write([]byte(cm.ToJson()))
 	}
 }
@@ -684,7 +806,7 @@ func removeChannelMember(c *Context, w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err = app.RemoveUserFromChannel(c.Params.UserId, c.Session.UserId, channel, c.GetSiteURL()); err != nil {
+	if err = app.RemoveUserFromChannel(c.Params.UserId, c.Session.UserId, channel); err != nil {
 		c.Err = err
 		return
 	}

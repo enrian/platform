@@ -1,4 +1,4 @@
-// Copyright (c) 2016 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2016-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 import React from 'react';
@@ -44,12 +44,14 @@ export default class EmojiPickerItem extends React.Component {
 
         if (this.props.category === 'recent' || this.props.category === 'custom') {
             item =
-                (<span>
+                (<span
+                    onMouseOver={this.handleMouseOver}
+                    onMouseOut={this.handleMouseOut}
+                    onClick={this.handleClick}
+                    className='emoji-picker__item-wrapper'
+                 >
                     <img
                         className='emoji-picker__item emoticon'
-                        onMouseOver={this.handleMouseOver}
-                        onMouseOut={this.handleMouseOut}
-                        onClick={this.handleClick}
                         src={EmojiStore.getEmojiImageUrl(this.props.emoji)}
                     />
                 </span>);

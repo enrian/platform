@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 import $ from 'jquery';
@@ -355,7 +355,7 @@ export default class AdvancedSettingsDisplay extends React.Component {
             return (
                 <FormattedMessage
                     id='user.settings.advance.emojipicker'
-                    defaultMessage='Enable the emoji picker'
+                    defaultMessage='Enable emoji picker for reactions and message input box'
                 />
             );
         default:

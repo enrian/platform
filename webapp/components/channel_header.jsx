@@ -1,19 +1,20 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 import $ from 'jquery';
 import 'bootstrap';
 import NavbarSearchBox from './search_bar.jsx';
 import MessageWrapper from './message_wrapper.jsx';
-import PopoverListMembers from './popover_list_members.jsx';
+import PopoverListMembers from 'components/popover_list_members';
 import EditChannelHeaderModal from './edit_channel_header_modal.jsx';
 import EditChannelPurposeModal from './edit_channel_purpose_modal.jsx';
 import ChannelInfoModal from './channel_info_modal.jsx';
-import ChannelInviteModal from './channel_invite_modal.jsx';
+import ChannelInviteModal from 'components/channel_invite_modal';
 import ChannelMembersModal from './channel_members_modal.jsx';
 import ChannelNotificationsModal from './channel_notifications_modal.jsx';
 import DeleteChannelModal from './delete_channel_modal.jsx';
 import RenameChannelModal from './rename_channel_modal.jsx';
+import ConfirmModal from './confirm_modal.jsx';
 import ToggleModalButton from './toggle_modal_button.jsx';
 
 import ChannelStore from 'stores/channel_store.jsx';
@@ -57,6 +58,8 @@ export default class ChannelHeader extends React.Component {
         this.initWebrtc = this.initWebrtc.bind(this);
         this.onBusy = this.onBusy.bind(this);
         this.openDirectMessageModal = this.openDirectMessageModal.bind(this);
+        this.createLeaveChannelModal = this.createLeaveChannelModal.bind(this);
+        this.hideLeaveChannelModal = this.hideLeaveChannelModal.bind(this);
 
         const state = this.getStateFromStores();
         state.showEditChannelPurposeModal = false;
@@ -84,7 +87,8 @@ export default class ChannelHeader extends React.Component {
             otherUserId,
             enableFormatting: PreferenceStore.getBool(Preferences.CATEGORY_ADVANCED_SETTINGS, 'formatting', true),
             isBusy: WebrtcStore.isBusy(),
-            isFavorite: channel && ChannelUtils.isFavoriteChannel(channel)
+            isFavorite: channel && ChannelUtils.isFavoriteChannel(channel),
+            showLeaveChannelModal: false
         };
     }
 
@@ -135,7 +139,13 @@ export default class ChannelHeader extends React.Component {
     }
 
     handleLeave() {
-        ChannelActions.leaveChannel(this.state.channel.id);
+        if (this.state.channel.type === Constants.PRIVATE_CHANNEL) {
+            this.setState({
+                showLeaveChannelModal: true
+            });
+        } else {
+            ChannelActions.leaveChannel(this.state.channel.id);
+        }
     }
 
     toggleFavorite = (e) => {
@@ -219,6 +229,54 @@ export default class ChannelHeader extends React.Component {
         });
     }
 
+    hideLeaveChannelModal() {
+        this.setState({
+            showLeaveChannelModal: false
+        });
+    }
+
+    createLeaveChannelModal() {
+        const title = (
+            <FormattedMessage
+                id='leave_private_channel_modal.title'
+                defaultMessage='Leave Private Channel {channel}'
+                values={{
+                    channel: <b>{this.state.channel.display_name}</b>
+                }}
+            />
+        );
+
+        const message = (
+            <FormattedMessage
+                id='leave_private_channel_modal.message'
+                defaultMessage='Are you sure you wish to leave the private channel {channel}? You must be re-invited in order to re-join this channel in the future.'
+                values={{
+                    channel: <b>{this.state.channel.display_name}</b>
+                }}
+            />
+        );
+
+        const buttonClass = 'btn btn-danger';
+        const button = (
+            <FormattedMessage
+                id='leave_private_channel_modal.leave'
+                defaultMessage='Yes, leave channel'
+            />
+        );
+
+        return (
+            <ConfirmModal
+                show={this.state.showLeaveChannelModal}
+                title={title}
+                message={message}
+                confirmButtonClass={buttonClass}
+                confirmButton={button}
+                onConfirm={() => ChannelActions.leaveChannel(this.state.channel.id)}
+                onCancel={this.hideLeaveChannelModal}
+            />
+        );
+    }
+
     render() {
         const flagIcon = Constants.FLAG_ICON_SVG;
         const pinIcon = Constants.PIN_ICON;
@@ -269,6 +327,7 @@ export default class ChannelHeader extends React.Component {
         );
         let channelTitle = channel.display_name;
         const isAdmin = TeamStore.isTeamAdminForCurrentTeam() || UserStore.isSystemAdminForCurrentUser();
+        const isTeamAdmin = TeamStore.isTeamAdminForCurrentTeam();
         const isSystemAdmin = UserStore.isSystemAdminForCurrentUser();
         const isChannelAdmin = ChannelStore.isChannelAdminForCurrentChannel();
         const isDirect = (this.state.channel.type === Constants.DM_CHANNEL);
@@ -347,21 +406,6 @@ export default class ChannelHeader extends React.Component {
 
         if (isGroup) {
             channelTitle = ChannelUtils.buildGroupChannelName(channel.id);
-        }
-
-        let channelTerm = (
-            <FormattedMessage
-                id='channel_header.channel'
-                defaultMessage='Channel'
-            />
-        );
-        if (channel.type === Constants.PRIVATE_CHANNEL) {
-            channelTerm = (
-                <FormattedMessage
-                    id='channel_header.group'
-                    defaultMessage='Group'
-                />
-            );
         }
 
         let popoverListMembers;
@@ -476,6 +520,27 @@ export default class ChannelHeader extends React.Component {
                 </li>
             );
 
+            if (ChannelStore.isDefault(channel)) {
+                dropdownContents.push(
+                    <li
+                        id='channelManageMembers'
+                        key='manage_members'
+                        role='presentation'
+                    >
+                        <a
+                            role='menuitem'
+                            href='#'
+                            onClick={() => this.setState({showMembersModal: true})}
+                        >
+                            <FormattedMessage
+                                id='channel_header.viewMembers'
+                                defaultMessage='View Members'
+                            />
+                        </a>
+                    </li>
+                );
+            }
+
             dropdownContents.push(
                 <li
                     id='channelNotificationPreferences'
@@ -507,44 +572,65 @@ export default class ChannelHeader extends React.Component {
                     />
                 );
 
-                dropdownContents.push(
-                    <li
-                        id='channelAddMembers'
-                        key='add_members'
-                        role='presentation'
-                    >
-                        <ToggleModalButton
-                            ref='channelInviteModalButton'
-                            role='menuitem'
-                            dialogType={ChannelInviteModal}
-                            dialogProps={{channel, currentUser: this.state.currentUser}}
+                if (ChannelUtils.canManageMembers(channel, isSystemAdmin, isTeamAdmin, isChannelAdmin)) {
+                    dropdownContents.push(
+                        <li
+                            id='channelAddMembers'
+                            key='add_members'
+                            role='presentation'
                         >
-                            <FormattedMessage
-                                id='channel_header.addMembers'
-                                defaultMessage='Add Members'
-                            />
-                        </ToggleModalButton>
-                    </li>
-                );
+                            <ToggleModalButton
+                                ref='channelInviteModalButton'
+                                role='menuitem'
+                                dialogType={ChannelInviteModal}
+                                dialogProps={{channel, currentUser: this.state.currentUser}}
+                            >
+                                <FormattedMessage
+                                    id='channel_header.addMembers'
+                                    defaultMessage='Add Members'
+                                />
+                            </ToggleModalButton>
+                        </li>
+                    );
 
-                dropdownContents.push(
-                    <li
-                        id='channelManageMembers'
-                        key='manage_members'
-                        role='presentation'
-                    >
-                        <a
-                            role='menuitem'
-                            href='#'
-                            onClick={() => this.setState({showMembersModal: true})}
+                    dropdownContents.push(
+                        <li
+                            id='channelManageMembers'
+                            key='manage_members'
+                            role='presentation'
                         >
-                            <FormattedMessage
-                                id='channel_header.manageMembers'
-                                defaultMessage='Manage Members'
-                            />
-                        </a>
-                    </li>
-                );
+                            <a
+                                role='menuitem'
+                                href='#'
+                                onClick={() => this.setState({showMembersModal: true})}
+                            >
+                                <FormattedMessage
+                                    id='channel_header.manageMembers'
+                                    defaultMessage='Manage Members'
+                                />
+                            </a>
+                        </li>
+                    );
+                } else {
+                    dropdownContents.push(
+                        <li
+                            id='channelViewMembers'
+                            key='view_members'
+                            role='presentation'
+                        >
+                            <a
+                                role='menuitem'
+                                href='#'
+                                onClick={() => this.setState({showMembersModal: true})}
+                            >
+                                <FormattedMessage
+                                    id='channel_header.viewMembers'
+                                    defaultMessage='View Members'
+                                />
+                            </a>
+                        </li>
+                    );
+                }
             }
 
             const deleteOption = (
@@ -560,10 +646,7 @@ export default class ChannelHeader extends React.Component {
                     >
                         <FormattedMessage
                             id='channel_header.delete'
-                            defaultMessage='Delete {term}'
-                            values={{
-                                term: (channelTerm)
-                            }}
+                            defaultMessage='Delete Channel'
                         />
                     </ToggleModalButton>
                 </li>
@@ -590,10 +673,7 @@ export default class ChannelHeader extends React.Component {
                         >
                             <FormattedMessage
                                 id='channel_header.setHeader'
-                                defaultMessage='Edit {term} Header'
-                                values={{
-                                    term: (channelTerm)
-                                }}
+                                defaultMessage='Edit Channel Header'
                             />
                         </ToggleModalButton>
                     </li>
@@ -612,10 +692,7 @@ export default class ChannelHeader extends React.Component {
                         >
                             <FormattedMessage
                                 id='channel_header.setPurpose'
-                                defaultMessage='Edit {term} Purpose'
-                                values={{
-                                    term: (channelTerm)
-                                }}
+                                defaultMessage='Edit Channel Purpose'
                             />
                         </a>
                     </li>
@@ -634,10 +711,7 @@ export default class ChannelHeader extends React.Component {
                         >
                             <FormattedMessage
                                 id='channel_header.rename'
-                                defaultMessage='Rename {term}'
-                                values={{
-                                    term: (channelTerm)
-                                }}
+                                defaultMessage='Rename Channel'
                             />
                         </a>
                     </li>
@@ -674,10 +748,7 @@ export default class ChannelHeader extends React.Component {
                         >
                             <FormattedMessage
                                 id='channel_header.leave'
-                                defaultMessage='Leave {term}'
-                                values={{
-                                    term: (channelTerm)
-                                }}
+                                defaultMessage='Leave Channel'
                             />
                         </a>
                     </li>
@@ -731,7 +802,7 @@ export default class ChannelHeader extends React.Component {
         );
 
         let channelMembersModal;
-        if (this.state.showMembersModal && channel.name !== Constants.DEFAULT_CHANNEL) {
+        if (this.state.showMembersModal) {
             channelMembersModal = (
                 <ChannelMembersModal
                     onModalDismissed={() => this.setState({showMembersModal: false})}
@@ -750,6 +821,8 @@ export default class ChannelHeader extends React.Component {
                 />
             );
         }
+
+        const leaveChannelModal = this.createLeaveChannelModal();
 
         return (
             <div
@@ -863,6 +936,7 @@ export default class ChannelHeader extends React.Component {
                 </table>
                 {editPurposeModal}
                 {channelMembersModal}
+                {leaveChannelModal}
                 <RenameChannelModal
                     show={this.state.showRenameChannelModal}
                     onHide={this.hideRenameChannelModal}

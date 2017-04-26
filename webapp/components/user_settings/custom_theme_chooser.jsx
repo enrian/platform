@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 import $ from 'jquery';
@@ -82,6 +82,10 @@ const messages = defineMessages({
     buttonColor: {
         id: 'user.settings.custom_theme.buttonColor',
         defaultMessage: 'Button Text'
+    },
+    errorTextColor: {
+        id: 'user.settings.custom_theme.errorTextColor',
+        defaultMessage: 'Error Text Color'
     },
     mentionHighlightBg: {
         id: 'user.settings.custom_theme.mentionHighlightBg',

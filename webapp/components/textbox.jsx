@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 import $ from 'jquery';
@@ -157,6 +157,10 @@ export default class Textbox extends React.Component {
         this.setState({preview: !this.state.preview});
     }
 
+    hidePreview() {
+        this.setState({preview: false});
+    }
+
     componentWillReceiveProps(nextProps) {
         if (nextProps.channelId !== this.props.channelId) {
             // Update channel id for AtMentionProvider.
@@ -242,6 +246,14 @@ export default class Textbox extends React.Component {
             </div>
         );
 
+        let textboxClassName = 'form-control custom-textarea';
+        if (this.props.emojiEnabled) {
+            textboxClassName += ' custom-textarea--emoji-picker';
+        }
+        if (this.state.connection) {
+            textboxClassName += ' ' + this.state.connection;
+        }
+
         return (
             <div
                 ref='wrapper'
@@ -250,7 +262,7 @@ export default class Textbox extends React.Component {
                 <SuggestionBox
                     id={this.props.id}
                     ref='message'
-                    className={`form-control custom-textarea${this.props.emojiEnabled ? '-emoji' : ''} ${this.state.connection}`}
+                    className={textboxClassName}
                     type='textarea'
                     spellCheck='true'
                     placeholder={this.props.createMessage}

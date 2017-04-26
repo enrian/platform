@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 import Suggestion from './suggestion.jsx';
@@ -85,5 +85,7 @@ export default class SearchChannelProvider extends Provider {
                 }
             );
         }
+
+        return Boolean(captured);
     }
 }

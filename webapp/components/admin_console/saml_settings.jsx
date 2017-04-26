@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 import React from 'react';
@@ -130,12 +130,10 @@ export default class SamlSettings extends AdminSettings {
 
     renderTitle() {
         return (
-            <h3>
-                <FormattedMessage
-                    id='admin.authentication.saml'
-                    defaultMessage='SAML'
-                />
-            </h3>
+            <FormattedMessage
+                id='admin.authentication.saml'
+                defaultMessage='SAML'
+            />
         );
     }
 

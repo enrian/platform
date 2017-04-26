@@ -1,4 +1,4 @@
-// Copyright (c) 2016 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2016-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 package app
@@ -38,7 +38,7 @@ func GetCommandProvider(name string) CommandProvider {
 	return nil
 }
 
-func CreateCommandPost(post *model.Post, teamId string, response *model.CommandResponse, siteURL string) (*model.Post, *model.AppError) {
+func CreateCommandPost(post *model.Post, teamId string, response *model.CommandResponse) (*model.Post, *model.AppError) {
 	post.Message = parseSlackLinksToMarkdown(response.Text)
 	post.CreateAt = model.GetMillis()
 
@@ -48,7 +48,7 @@ func CreateCommandPost(post *model.Post, teamId string, response *model.CommandR
 
 	switch response.ResponseType {
 	case model.COMMAND_RESPONSE_TYPE_IN_CHANNEL:
-		return CreatePost(post, teamId, true, siteURL)
+		return CreatePost(post, teamId, true)
 	case model.COMMAND_RESPONSE_TYPE_EPHEMERAL:
 		if response.Text == "" {
 			return post, nil
@@ -61,7 +61,8 @@ func CreateCommandPost(post *model.Post, teamId string, response *model.CommandR
 	return post, nil
 }
 
-func ListCommands(teamId string, T goi18n.TranslateFunc) ([]*model.Command, *model.AppError) {
+// previous ListCommands now ListAutocompleteCommands
+func ListAutocompleteCommands(teamId string, T goi18n.TranslateFunc) ([]*model.Command, *model.AppError) {
 	commands := make([]*model.Command, 0, 32)
 	seen := make(map[string]bool)
 	for _, value := range commandProviders {
@@ -101,6 +102,36 @@ func ListTeamCommands(teamId string) ([]*model.Command, *model.AppError) {
 	} else {
 		return result.Data.([]*model.Command), nil
 	}
+}
+
+func ListAllCommands(teamId string, T goi18n.TranslateFunc) ([]*model.Command, *model.AppError) {
+	commands := make([]*model.Command, 0, 32)
+	seen := make(map[string]bool)
+	for _, value := range commandProviders {
+		cpy := *value.GetCommand(T)
+		if cpy.AutoComplete && !seen[cpy.Id] {
+			cpy.Sanitize()
+			seen[cpy.Trigger] = true
+			commands = append(commands, &cpy)
+		}
+	}
+
+	if *utils.Cfg.ServiceSettings.EnableCommands {
+		if result := <-Srv.Store.Command().GetByTeam(teamId); result.Err != nil {
+			return nil, result.Err
+		} else {
+			teamCmds := result.Data.([]*model.Command)
+			for _, cmd := range teamCmds {
+				if !seen[cmd.Id] {
+					cmd.Sanitize()
+					seen[cmd.Trigger] = true
+					commands = append(commands, cmd)
+				}
+			}
+		}
+	}
+
+	return commands, nil
 }
 
 func ExecuteCommand(args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
@@ -237,7 +268,7 @@ func HandleCommandResponse(command *model.Command, args *model.CommandArgs, resp
 		}
 	}
 
-	if _, err := CreateCommandPost(post, args.TeamId, response, args.SiteURL); err != nil {
+	if _, err := CreateCommandPost(post, args.TeamId, response); err != nil {
 		l4g.Error(err.Error())
 	}
 
@@ -281,6 +312,7 @@ func GetCommand(commandId string) (*model.Command, *model.AppError) {
 	}
 
 	if result := <-Srv.Store.Command().Get(commandId); result.Err != nil {
+		result.Err.StatusCode = http.StatusNotFound
 		return nil, result.Err
 	} else {
 		return result.Data.(*model.Command), nil

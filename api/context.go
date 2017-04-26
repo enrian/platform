@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 package api
@@ -26,7 +26,7 @@ type Context struct {
 	IpAddress     string
 	Path          string
 	Err           *model.AppError
-	siteURL       string
+	siteURLHeader string
 	teamURLValid  bool
 	teamURL       string
 	T             goi18n.TranslateFunc
@@ -146,15 +146,10 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		isTokenFromQueryString = true
 	}
 
-	if utils.GetSiteURL() == "" {
-		protocol := app.GetProtocol(r)
-		c.SetSiteURL(protocol + "://" + r.Host)
-	} else {
-		c.SetSiteURL(utils.GetSiteURL())
-	}
+	c.SetSiteURLHeader(app.GetProtocol(r) + "://" + r.Host)
 
 	w.Header().Set(model.HEADER_REQUEST_ID, c.RequestId)
-	w.Header().Set(model.HEADER_VERSION_ID, fmt.Sprintf("%v.%v.%v.%v", model.CurrentVersion, model.BuildNumber, utils.CfgHash, utils.IsLicensed))
+	w.Header().Set(model.HEADER_VERSION_ID, fmt.Sprintf("%v.%v.%v.%v", model.CurrentVersion, model.BuildNumber, utils.ClientCfgHash, utils.IsLicensed))
 	if einterfaces.GetClusterInterface() != nil {
 		w.Header().Set(model.HEADER_CLUSTER_ID, einterfaces.GetClusterInterface().GetClusterId())
 	}
@@ -191,11 +186,11 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if h.isApi || h.isTeamIndependent {
-		c.setTeamURL(c.GetSiteURL(), false)
+		c.setTeamURL(c.GetSiteURLHeader(), false)
 		c.Path = r.URL.Path
 	} else {
 		splitURL := strings.Split(r.URL.Path, "/")
-		c.setTeamURL(c.GetSiteURL()+"/"+splitURL[1], true)
+		c.setTeamURL(c.GetSiteURLHeader()+"/"+splitURL[1], true)
 		c.Path = "/" + strings.Join(splitURL[2:], "/")
 	}
 
@@ -247,7 +242,7 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if c.Err.StatusCode == http.StatusUnauthorized {
 				http.Redirect(w, r, c.GetTeamURL()+"/?redirect="+url.QueryEscape(r.URL.Path), http.StatusTemporaryRedirect)
 			} else {
-				RenderWebError(c.Err, w, r)
+				utils.RenderWebError(c.Err, w, r)
 			}
 		}
 
@@ -391,16 +386,17 @@ func (c *Context) setTeamURL(url string, valid bool) {
 
 func (c *Context) SetTeamURLFromSession() {
 	if result := <-app.Srv.Store.Team().Get(c.TeamId); result.Err == nil {
-		c.setTeamURL(c.GetSiteURL()+"/"+result.Data.(*model.Team).Name, true)
+		c.setTeamURL(c.GetSiteURLHeader()+"/"+result.Data.(*model.Team).Name, true)
 	}
 }
 
-func (c *Context) SetSiteURL(url string) {
-	c.siteURL = strings.TrimRight(url, "/")
+func (c *Context) SetSiteURLHeader(url string) {
+	c.siteURLHeader = strings.TrimRight(url, "/")
 }
 
+// TODO see where these are used
 func (c *Context) GetTeamURLFromTeam(team *model.Team) string {
-	return c.GetSiteURL() + "/" + team.Name
+	return c.GetSiteURLHeader() + "/" + team.Name
 }
 
 func (c *Context) GetTeamURL() string {
@@ -413,8 +409,8 @@ func (c *Context) GetTeamURL() string {
 	return c.teamURL
 }
 
-func (c *Context) GetSiteURL() string {
-	return c.siteURL
+func (c *Context) GetSiteURLHeader() string {
+	return c.siteURLHeader
 }
 
 func (c *Context) GetCurrentTeamMember() *model.TeamMember {
@@ -423,31 +419,6 @@ func (c *Context) GetCurrentTeamMember() *model.TeamMember {
 
 func IsApiCall(r *http.Request) bool {
 	return strings.Index(r.URL.Path, "/api/") == 0
-}
-
-func RenderWebError(err *model.AppError, w http.ResponseWriter, r *http.Request) {
-	T, _ := utils.GetTranslationsAndLocale(w, r)
-
-	title := T("api.templates.error.title", map[string]interface{}{"SiteName": utils.ClientCfg["SiteName"]})
-	message := err.Message
-	details := err.DetailedError
-	link := "/"
-	linkMessage := T("api.templates.error.link")
-
-	status := http.StatusTemporaryRedirect
-	if err.StatusCode != http.StatusInternalServerError {
-		status = err.StatusCode
-	}
-
-	http.Redirect(
-		w,
-		r,
-		"/error?title="+url.QueryEscape(title)+
-			"&message="+url.QueryEscape(message)+
-			"&details="+url.QueryEscape(details)+
-			"&link="+url.QueryEscape(link)+
-			"&linkmessage="+url.QueryEscape(linkMessage),
-		status)
 }
 
 func Handle404(w http.ResponseWriter, r *http.Request) {
@@ -462,7 +433,7 @@ func Handle404(w http.ResponseWriter, r *http.Request) {
 		err.DetailedError = "There doesn't appear to be an api call for the url='" + r.URL.Path + "'.  Typo? are you missing a team_id or user_id as part of the url?"
 		w.Write([]byte(err.ToJson()))
 	} else {
-		RenderWebError(err, w, r)
+		utils.RenderWebError(err, w, r)
 	}
 }
 

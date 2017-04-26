@@ -1,10 +1,12 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 import AppDispatcher from '../dispatcher/app_dispatcher.jsx';
 import EventEmitter from 'events';
 
 import Constants from 'utils/constants.jsx';
+import ChannelStore from 'stores/channel_store.jsx';
+
 var ActionTypes = Constants.ActionTypes;
 
 var CHANGE_EVENT = 'change';
@@ -117,6 +119,33 @@ class SearchStoreClass extends EventEmitter {
             });
         }
     }
+
+    togglePinPost(postId, isPinned) {
+        const results = this.getSearchResults();
+        if (results == null) {
+            return;
+        }
+
+        if (postId in results.posts) {
+            const post = results.posts[postId];
+            results.posts[postId] = Object.assign({}, post, {
+                is_pinned: isPinned
+            });
+        }
+    }
+
+    removePost(post) {
+        const results = this.getSearchResults();
+        if (results == null) {
+            return;
+        }
+
+        const index = results.order.indexOf(post.id);
+        if (index > -1) {
+            delete results.posts[post.id];
+            results.order.splice(index, 1);
+        }
+    }
 }
 
 var SearchStore = new SearchStoreClass();
@@ -126,6 +155,13 @@ SearchStore.dispatchToken = AppDispatcher.register((payload) => {
 
     switch (action.type) {
     case ActionTypes.RECEIVED_SEARCH:
+        if (SearchStore.getIsPinnedPosts() === action.is_pinned_posts &&
+            action.is_pinned_posts === true &&
+            SearchStore.getSearchResults().posts &&
+            ChannelStore.getCurrentId() !== Object.values(SearchStore.getSearchResults().posts)[0].channel_id) {
+            // ignore pin posts update after switch to a new channel
+            return;
+        }
         SearchStore.storeSearchResults(action.results, action.is_mention_search, action.is_flagged_posts, action.is_pinned_posts);
         SearchStore.emitSearchChange();
         break;
@@ -138,6 +174,18 @@ SearchStore.dispatchToken = AppDispatcher.register((payload) => {
         break;
     case ActionTypes.POST_DELETED:
         SearchStore.deletePost(action.post);
+        SearchStore.emitSearchChange();
+        break;
+    case ActionTypes.RECEIVED_POST_PINNED:
+        SearchStore.togglePinPost(action.reaction, true);
+        SearchStore.emitSearchChange();
+        break;
+    case ActionTypes.RECEIVED_POST_UNPINNED:
+        SearchStore.togglePinPost(action.reaction, false);
+        SearchStore.emitSearchChange();
+        break;
+    case ActionTypes.REMOVE_POST:
+        SearchStore.removePost(action.post);
         SearchStore.emitSearchChange();
         break;
     default:

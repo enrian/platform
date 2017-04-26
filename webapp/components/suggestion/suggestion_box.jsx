@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 import Constants from 'utils/constants.jsx';
@@ -172,6 +172,7 @@ export default class SuggestionBox extends React.Component {
                 e.preventDefault();
             } else if (e.which === KeyCodes.ENTER || e.which === KeyCodes.TAB) {
                 GlobalActions.emitCompleteWordSuggestion(this.suggestionId);
+                this.props.onKeyDown(e);
                 e.preventDefault();
             } else if (e.which === KeyCodes.ESCAPE) {
                 GlobalActions.emitClearSuggestions(this.suggestionId);
@@ -185,8 +186,13 @@ export default class SuggestionBox extends React.Component {
     }
 
     handlePretextChanged(pretext) {
+        let handled = false;
         for (const provider of this.props.providers) {
-            provider.handlePretextChanged(this.suggestionId, pretext);
+            handled = provider.handlePretextChanged(this.suggestionId, pretext) || handled;
+        }
+
+        if (!handled) {
+            SuggestionStore.clearSuggestions(this.suggestionId);
         }
     }
 

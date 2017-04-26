@@ -1,4 +1,4 @@
-// Copyright (c) 2016 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2016-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 import $ from 'jquery';
@@ -13,7 +13,6 @@ import AppDispatcher from 'dispatcher/app_dispatcher.jsx';
 import Constants from 'utils/constants.jsx';
 const ActionTypes = Constants.ActionTypes;
 import * as AsyncClient from 'utils/async_client.jsx';
-import * as Utils from 'utils/utils.jsx';
 import Client from 'client/web_client.jsx';
 import ChannelStore from 'stores/channel_store.jsx';
 import BrowserStore from 'stores/browser_store.jsx';
@@ -35,7 +34,7 @@ function doChannelChange(state, replace, callback) {
         channel = ChannelStore.getByName(state.params.channel);
 
         if (channel && channel.type === Constants.DM_CHANNEL) {
-            loadNewDMIfNeeded(Utils.getUserIdFromChannelName(channel));
+            loadNewDMIfNeeded(channel.id);
         } else if (channel && channel.type === Constants.GM_CHANNEL) {
             loadNewGMIfNeeded(channel.id);
         }
@@ -108,8 +107,7 @@ function preNeedsTeam(nextState, replace, callback) {
     if (nextState.location.pathname.indexOf('/channels/') > -1 ||
         nextState.location.pathname.indexOf('/pl/') > -1) {
         AsyncClient.getMyTeamsUnread();
-        const members = TeamStore.getMyTeamMembers();
-        members.forEach((m) => AsyncClient.getMyChannelMembersForTeam(m.team_id));
+        AsyncClient.getMyChannelMembersForTeam(team.id);
     }
 
     const d1 = $.Deferred(); //eslint-disable-line new-cap

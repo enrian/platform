@@ -1,10 +1,11 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 package store
 
 import (
 	"fmt"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -13,7 +14,6 @@ import (
 	"github.com/mattermost/platform/einterfaces"
 	"github.com/mattermost/platform/model"
 	"github.com/mattermost/platform/utils"
-	"net/http"
 )
 
 type SqlPostStore struct {
@@ -196,6 +196,94 @@ func (s SqlPostStore) GetFlaggedPosts(userId string, offset int, limit int) Stor
 		var posts []*model.Post
 		if _, err := s.GetReplica().Select(&posts, "SELECT * FROM Posts WHERE Id IN (SELECT Name FROM Preferences WHERE UserId = :UserId AND Category = :Category) AND DeleteAt = 0 ORDER BY CreateAt DESC LIMIT :Limit OFFSET :Offset", map[string]interface{}{"UserId": userId, "Category": model.PREFERENCE_CATEGORY_FLAGGED_POST, "Offset": offset, "Limit": limit}); err != nil {
 			result.Err = model.NewLocAppError("SqlPostStore.GetFlaggedPosts", "store.sql_post.get_flagged_posts.app_error", nil, err.Error())
+		} else {
+			for _, post := range posts {
+				pl.AddPost(post)
+				pl.AddOrder(post.Id)
+			}
+		}
+
+		result.Data = pl
+
+		storeChannel <- result
+		close(storeChannel)
+	}()
+
+	return storeChannel
+}
+
+func (s SqlPostStore) GetFlaggedPostsForTeam(userId, teamId string, offset int, limit int) StoreChannel {
+	storeChannel := make(StoreChannel, 1)
+	go func() {
+		result := StoreResult{}
+		pl := model.NewPostList()
+
+		var posts []*model.Post
+
+		query := `
+            SELECT
+                A.*
+            FROM
+                (SELECT
+                    *
+                FROM
+                    Posts
+                WHERE
+                    Id
+                IN
+                    (SELECT
+                        Name
+                    FROM
+                        Preferences
+                    WHERE
+                        UserId = :UserId
+                        AND Category = :Category)
+                        AND DeleteAt = 0
+                ) as A
+            INNER JOIN Channels as B
+                ON B.Id = A.ChannelId
+            WHERE B.TeamId = :TeamId OR B.TeamId = ''
+            ORDER BY CreateAt DESC
+            LIMIT :Limit OFFSET :Offset`
+
+		if _, err := s.GetReplica().Select(&posts, query, map[string]interface{}{"UserId": userId, "Category": model.PREFERENCE_CATEGORY_FLAGGED_POST, "Offset": offset, "Limit": limit, "TeamId": teamId}); err != nil {
+			result.Err = model.NewLocAppError("SqlPostStore.GetFlaggedPostsForTeam", "store.sql_post.get_flagged_posts.app_error", nil, err.Error())
+		} else {
+			for _, post := range posts {
+				pl.AddPost(post)
+				pl.AddOrder(post.Id)
+			}
+		}
+
+		result.Data = pl
+
+		storeChannel <- result
+		close(storeChannel)
+	}()
+
+	return storeChannel
+}
+
+func (s SqlPostStore) GetFlaggedPostsForChannel(userId, channelId string, offset int, limit int) StoreChannel {
+	storeChannel := make(StoreChannel, 1)
+	go func() {
+		result := StoreResult{}
+		pl := model.NewPostList()
+
+		var posts []*model.Post
+		query := `
+			SELECT 
+				* 
+			FROM Posts 
+			WHERE 
+				Id IN (SELECT Name FROM Preferences WHERE UserId = :UserId AND Category = :Category) 
+				AND ChannelId = :ChannelId
+				AND DeleteAt = 0 
+			ORDER BY CreateAt DESC 
+			LIMIT :Limit OFFSET :Offset`
+
+		if _, err := s.GetReplica().Select(&posts, query, map[string]interface{}{"UserId": userId, "Category": model.PREFERENCE_CATEGORY_FLAGGED_POST, "ChannelId": channelId, "Offset": offset, "Limit": limit}); err != nil {
+			result.Err = model.NewLocAppError("SqlPostStore.GetFlaggedPostsForChannel", "store.sql_post.get_flagged_posts.app_error", nil, err.Error())
 		} else {
 			for _, post := range posts {
 				pl.AddPost(post)
@@ -820,6 +908,17 @@ func (s SqlPostStore) Search(teamId string, userId string, params *model.SearchP
 	go func() {
 		result := StoreResult{}
 
+		if !*utils.Cfg.ServiceSettings.EnablePostSearch {
+			list := &model.PostList{}
+			list.MakeNonNil()
+			result.Data = list
+
+			result.Err = model.NewLocAppError("SqlPostStore.Search", "store.sql_post.search.disabled", nil, fmt.Sprintf("teamId=%v userId=%v params=%v", teamId, userId, params.ToJson()))
+			storeChannel <- result
+			close(storeChannel)
+			return
+		}
+
 		queryParams := map[string]interface{}{
 			"TeamId": teamId,
 			"UserId": userId,
@@ -831,6 +930,7 @@ func (s SqlPostStore) Search(teamId string, userId string, params *model.SearchP
 		if terms == "" && len(params.InChannels) == 0 && len(params.FromUsers) == 0 {
 			result.Data = []*model.Post{}
 			storeChannel <- result
+			close(storeChannel)
 			return
 		}
 

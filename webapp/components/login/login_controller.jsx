@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 import LoginMfa from './components/login_mfa.jsx';
@@ -209,19 +209,15 @@ export default class LoginController extends React.Component {
     }
 
     finishSignin(team) {
-        GlobalActions.emitInitialLoad(
-            () => {
-                const query = this.props.location.query;
-                GlobalActions.loadDefaultLocale();
-                if (query.redirect_to) {
-                    browserHistory.push(query.redirect_to);
-                } else if (team) {
-                    browserHistory.push(`/${team.name}`);
-                } else {
-                    GlobalActions.redirectUserToDefaultTeam();
-                }
-            }
-        );
+        const query = this.props.location.query;
+        GlobalActions.loadDefaultLocale();
+        if (query.redirect_to) {
+            browserHistory.push(query.redirect_to);
+        } else if (team) {
+            browserHistory.push(`/${team.name}`);
+        } else {
+            GlobalActions.redirectUserToDefaultTeam();
+        }
     }
 
     handleLoginIdChange(e) {

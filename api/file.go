@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 package api
@@ -316,5 +316,5 @@ func getPublicLink(c *Context, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write([]byte(model.StringToJson(app.GeneratePublicLinkV3(c.GetSiteURL(), info))))
+	w.Write([]byte(model.StringToJson(app.GeneratePublicLinkV3(c.GetSiteURLHeader(), info))))
 }

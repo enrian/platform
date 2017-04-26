@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 import $ from 'jquery';
@@ -61,6 +61,13 @@ export function initialize() {
 
     WebSocketClient.setEventCallback(handleEvent);
     WebSocketClient.setFirstConnectCallback(handleFirstConnect);
+    WebSocketClient.setReconnectCallback(() => reconnect(false));
+    WebSocketClient.setMissedEventCallback(() => {
+        if (global.window.mm_config.EnableDeveloper === 'true') {
+            Client.logClientError('missed websocket event seq=' + WebSocketClient.eventSequence);
+        }
+        reconnect(false);
+    });
     WebSocketClient.setCloseCallback(handleClose);
     WebSocketClient.initialize(connUrl);
 }
@@ -146,6 +153,10 @@ function handleEvent(msg) {
         handleUpdateTeamEvent(msg);
         break;
 
+    case SocketEvents.ADDED_TO_TEAM:
+        handleTeamAddedEvent(msg);
+        break;
+
     case SocketEvents.USER_ADDED:
         handleUserAddedEvent(msg);
         break;
@@ -172,6 +183,14 @@ function handleEvent(msg) {
 
     case SocketEvents.PREFERENCE_CHANGED:
         handlePreferenceChangedEvent(msg);
+        break;
+
+    case SocketEvents.PREFERENCES_CHANGED:
+        handlePreferencesChangedEvent(msg);
+        break;
+
+    case SocketEvents.PREFERENCES_DELETED:
+        handlePreferencesDeletedEvent(msg);
         break;
 
     case SocketEvents.TYPING:
@@ -234,6 +253,27 @@ function handlePostDeleteEvent(msg) {
     GlobalActions.emitPostDeletedEvent(post);
 }
 
+function handleTeamAddedEvent(msg) {
+    Client.getTeam(msg.data.team_id, (team) => {
+        AppDispatcher.handleServerAction({
+            type: ActionTypes.RECEIVED_TEAM,
+            team
+        });
+
+        Client.getMyTeamMembers((data) => {
+            AppDispatcher.handleServerAction({
+                type: ActionTypes.RECEIVED_MY_TEAM_MEMBERS,
+                team_members: data
+            });
+            AsyncClient.getMyTeamsUnread();
+        }, (err) => {
+            AsyncClient.dispatchError(err, 'getMyTeamMembers');
+        });
+    }, (err) => {
+        AsyncClient.dispatchError(err, 'getTeam');
+    });
+}
+
 function handleLeaveTeamEvent(msg) {
     if (UserStore.getCurrentId() === msg.data.user_id) {
         TeamStore.removeMyTeamMember(msg.data.team_id);
@@ -244,7 +284,10 @@ function handleLeaveTeamEvent(msg) {
             Client.setTeamId('');
             BrowserStore.removeGlobalItem('team');
             BrowserStore.removeGlobalItem(msg.data.team_id);
-            GlobalActions.redirectUserToDefaultTeam();
+
+            if (!global.location.pathname.startsWith('/admin_console')) {
+                GlobalActions.redirectUserToDefaultTeam();
+            }
         }
     } else {
         UserStore.removeProfileFromTeam(msg.data.team_id, msg.data.user_id);
@@ -295,7 +338,6 @@ function handleUserUpdatedEvent(msg) {
     const user = msg.data.user;
     if (UserStore.getCurrentId() !== user.id) {
         UserStore.saveProfile(user);
-        UserStore.emitChange(user.id);
     }
 }
 
@@ -319,6 +361,16 @@ function handleChannelDeletedEvent(msg) {
 function handlePreferenceChangedEvent(msg) {
     const preference = JSON.parse(msg.data.preference);
     GlobalActions.emitPreferenceChangedEvent(preference);
+}
+
+function handlePreferencesChangedEvent(msg) {
+    const preferences = JSON.parse(msg.data.preferences);
+    GlobalActions.emitPreferencesChangedEvent(preferences);
+}
+
+function handlePreferencesDeletedEvent(msg) {
+    const preferences = JSON.parse(msg.data.preferences);
+    GlobalActions.emitPreferencesDeletedEvent(preferences);
 }
 
 function handleUserTypingEvent(msg) {

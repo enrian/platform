@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 package api
@@ -1053,10 +1053,10 @@ func TestEmailMention(t *testing.T) {
 		t.Log("No email was received, maybe due load on the server. Disabling this verification")
 	}
 	if err == nil && len(resultsMailbox) > 0 {
-		if !strings.ContainsAny(resultsMailbox[0].To[0], th.BasicUser2.Email) {
+		if !strings.ContainsAny(resultsMailbox[len(resultsMailbox)-1].To[0], th.BasicUser2.Email) {
 			t.Fatal("Wrong To recipient")
 		} else {
-			if resultsEmail, err := utils.GetMessageFromMailbox(th.BasicUser2.Email, resultsMailbox[0].ID); err == nil {
+			if resultsEmail, err := utils.GetMessageFromMailbox(th.BasicUser2.Email, resultsMailbox[len(resultsMailbox)-1].ID); err == nil {
 				if !strings.Contains(resultsEmail.Body.Text, post1.Message) {
 					t.Log(resultsEmail.Body.Text)
 					t.Fatal("Received wrong Message")
@@ -1114,6 +1114,11 @@ func TestGetFlaggedPosts(t *testing.T) {
 
 	if len(r2.Order) != 0 {
 		t.Fatal("should not have gotten a flagged post")
+	}
+
+	Client.SetTeamId(model.NewId())
+	if _, err := Client.GetFlaggedPosts(0, 2); err == nil {
+		t.Fatal("should have failed - bad team id")
 	}
 }
 

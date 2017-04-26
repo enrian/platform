@@ -1,4 +1,4 @@
-// Copyright (c) 2016 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2016-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 import TestHelper from 'tests/helpers/client-test-helper.jsx';
@@ -246,23 +246,6 @@ describe('Client.Channels', function() {
         });
     });
 
-    test('updateLastViewedAt', function(done) {
-        TestHelper.initBasic(done, () => {
-            var channel = TestHelper.basicChannel();
-            TestHelper.basicClient().updateLastViewedAt(
-                channel.id,
-                true,
-                function(data) {
-                    expect(data.id).toEqual(channel.id);
-                    done();
-                },
-                function(err) {
-                    done.fail(new Error(err.message));
-                }
-            );
-        });
-    });
-
     test('getChannels', function(done) {
         TestHelper.initBasic(done, () => {
             TestHelper.basicClient().getChannels(
@@ -283,20 +266,6 @@ describe('Client.Channels', function() {
                 TestHelper.basicChannel().id,
                 function(data) {
                     expect(TestHelper.basicChannel().id).toEqual(data.channel.id);
-                    done();
-                },
-                function(err) {
-                    done.fail(new Error(err.message));
-                }
-            );
-        });
-    });
-
-    test('getMoreChannels', function(done) {
-        TestHelper.initBasic(done, () => {
-            TestHelper.basicClient().getMoreChannels(
-                function(data) {
-                    expect(data.length).toBe(0);
                     done();
                 },
                 function(err) {

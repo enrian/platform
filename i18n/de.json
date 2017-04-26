@@ -149,7 +149,7 @@
   },
   {
     "id": "api.brand.init.debug",
-    "translation": "Initialisiere Befehle-API-Routen"
+    "translation": "Initialisiere Marken-API-Routen"
   },
   {
     "id": "api.channel.add_member.added",
@@ -185,11 +185,11 @@
   },
   {
     "id": "api.channel.can_manage_channel.private_restricted_system_admin.app_error",
-    "translation": "Verwaltung und Erstellung von privaten Gruppen ist auf Systemadministratoren begrenzt."
+    "translation": "Verwaltung und Erstellung von privaten Kanälen ist auf Systemadministratoren begrenzt."
   },
   {
     "id": "api.channel.can_manage_channel.private_restricted_team_admin.app_error",
-    "translation": "Verwaltung und Erstellung von privaten Gruppen ist auf Team- und Systemadministratoren begrenzt."
+    "translation": "Verwaltung und Erstellung von privaten Kanälen ist auf Team- und Systemadministratoren begrenzt."
   },
   {
     "id": "api.channel.can_manage_channel.public_restricted_system_admin.app_error",
@@ -201,11 +201,11 @@
   },
   {
     "id": "api.channel.create_channel.direct_channel.app_error",
-    "translation": "Für die Erstellung eines Direktnachrichten-Kanals muss der createDirectChannel-API-Service verwendet werden"
+    "translation": "Für die Erstellung eines Direktnachrichtenkanals muss der createDirectChannel-API-Service verwendet werden"
   },
   {
     "id": "api.channel.create_channel.invalid_character.app_error",
-    "translation": "Im Kanalnamen für Nicht-Direktnachrichten-Kanal wurde ein unerlaubtes Zeichen '__' verwendet"
+    "translation": "Ungültiges Zeichen '__' im Kanalnamen für Nicht-Direktnachrichtenkanal"
   },
   {
     "id": "api.channel.create_channel.max_channel_limit.app_error",
@@ -237,7 +237,7 @@
   },
   {
     "id": "api.channel.delete_channel.cannot.app_error",
-    "translation": "Der Standard-Kanal {{.Channel}} kann nicht gelöscht werden"
+    "translation": "Der Standardkanal {{.Channel}} kann nicht gelöscht werden"
   },
   {
     "id": "api.channel.delete_channel.deleted.app_error",
@@ -265,7 +265,7 @@
   },
   {
     "id": "api.channel.get_channel.wrong_team.app_error",
-    "translation": "Es gibt keinen Kanal mit der channel_id={{.ChannelId}} im Team mit der team_id={{.TeamId}}"
+    "translation": "Es gibt keinen Kanal mit channel_id={{.ChannelId}} im Team mit team_id={{.TeamId}}"
   },
   {
     "id": "api.channel.get_channel_counts.app_error",
@@ -289,7 +289,7 @@
   },
   {
     "id": "api.channel.join_channel.already_deleted.app_error",
-    "translation": "Channel is already deleted"
+    "translation": "Der Kanal ist bereits gelöscht"
   },
   {
     "id": "api.channel.join_channel.permissions.app_error",
@@ -301,7 +301,7 @@
   },
   {
     "id": "api.channel.leave.default.app_error",
-    "translation": "Der Standard-Kanal{{.Channel}} kann nicht verlassen werden"
+    "translation": "Der Standardkanal {{.Channel}} kann nicht verlassen werden"
   },
   {
     "id": "api.channel.leave.direct.app_error",
@@ -309,7 +309,7 @@
   },
   {
     "id": "api.channel.leave.last_member.app_error",
-    "translation": "Sie sind das letzte Mitglied dieser Gruppe. Versuchen Sie die Gruppe zu löschen anstatt sie zu verlassen."
+    "translation": "Sie sind das letzte Mitglied, versuchen Sie die private Gruppe zu löschen anstatt sie zu verlassen."
   },
   {
     "id": "api.channel.leave.left",
@@ -333,7 +333,7 @@
   },
   {
     "id": "api.channel.post_update_channel_header_message_and_forget.removed",
-    "translation": "Der Kanaltitel %s wurde entfernt (vorher: %s)"
+    "translation": "Die Kanalüberschrift %s wurde entfernt (vorher: %s)"
   },
   {
     "id": "api.channel.post_update_channel_header_message_and_forget.retrieve_user.error",
@@ -341,11 +341,11 @@
   },
   {
     "id": "api.channel.post_update_channel_header_message_and_forget.updated_from",
-    "translation": "%s Der Kanaltitel wurde aktualisiert von %s nach %s"
+    "translation": "%s hat die Kanalüberschrift von %s auf %s geändert"
   },
   {
     "id": "api.channel.post_update_channel_header_message_and_forget.updated_to",
-    "translation": "%s der Kanaltitel wurde aktualisiert in %s"
+    "translation": "%s hat die Kanalüberschrift geändert auf: %s"
   },
   {
     "id": "api.channel.post_user_add_remove_message_and_forget.error",
@@ -353,7 +353,7 @@
   },
   {
     "id": "api.channel.remove.default.app_error",
-    "translation": "Der Benutzer kann nicht vom Standard-Kanal {{.Channel}} entfernt werden"
+    "translation": "Der Benutzer kann nicht aus dem Standardkanal {{.Channel}} entfernt werden"
   },
   {
     "id": "api.channel.remove_member.permissions.app_error",
@@ -388,12 +388,12 @@
     "translation": "Versuch einer ungültigen Änderung am Standardkanal {{.Channel}} durchzuführen"
   },
   {
-    "id": "api.channel.update_last_viewed_at.get_unread_count_for_channel.errord",
+    "id": "api.channel.update_last_viewed_at.get_unread_count_for_channel.error",
     "translation": "Konnte die Ungelesen-Zahl für user_id=%v und channel_id=%v nicht abrufen, err=%v"
   },
   {
     "id": "api.cluster.init.debug",
-    "translation": "Initialisiere Benutzer-API-Routen"
+    "translation": "Initialisiere Cluster-API-Routen"
   },
   {
     "id": "api.command.admin_only.app_error",
@@ -813,7 +813,11 @@
   },
   {
     "id": "api.compliance.init.debug",
-    "translation": "Initialisiere Befehle-API-Routen"
+    "translation": "Initialisiere Compliance-API-Routen"
+  },
+  {
+    "id": "api.config.client.old_format.app_error",
+    "translation": "Das neue Format für die Clientkonfiguration wird noch nicht unterstützt. Bitte geben Sie format=old in der Anfrage an."
   },
   {
     "id": "api.context.404.app_error",
@@ -882,6 +886,10 @@
   {
     "id": "api.context.unknown.app_error",
     "translation": "Ein unbekannter Fehler ist aufgetreten. Bitte kontaktieren Sie den Support."
+  },
+  {
+    "id": "api.deprecated.init.debug",
+    "translation": "Initialisiere veraltete API-Routen"
   },
   {
     "id": "api.email_batching.add_notification_email_to_batch.channel_full.app_error",
@@ -1231,7 +1239,7 @@
   },
   {
     "id": "api.import.import_user.joining_default.error",
-    "translation": "Fehler beim Betreten des Standard Kanals user_id=%s, team_id=%s, err=%v"
+    "translation": "Fehler beim Betreten des Standardkanals user_id=%s, team_id=%s, err=%v"
   },
   {
     "id": "api.import.import_user.saving.error",
@@ -1247,7 +1255,7 @@
   },
   {
     "id": "api.ldap.init.debug",
-    "translation": "Initialisiere Datei-API-Routen"
+    "translation": "Initialisiere LDAP-API-Routen"
   },
   {
     "id": "api.license.add_license.array.app_error",
@@ -1284,6 +1292,10 @@
   {
     "id": "api.license.add_license.unique_users.app_error",
     "translation": "Diese Lizenz unterstützt maximal {{.Users}}, wobei ihr System derzeit {{.Count}} eindeutige Benutzer umfasst. Eindeutige Benutzer werden anhand der E-Mail-Adresse gezählt. Die Anzahl der Benutzer lässt sich unter Seiten Berichte -> Statistiken anzeigen einsehen."
+  },
+  {
+    "id": "api.license.client.old_format.app_error",
+    "translation": "Das neue Format für die Clientlizenz wird nocht nicht unterstützt. Bitte geben Sie format=old in der Anfrage an."
   },
   {
     "id": "api.license.init.debug",
@@ -1541,7 +1553,7 @@
   },
   {
     "id": "api.post.make_direct_channel_visible.get_2_members.error",
-    "translation": "Fehler beim Abruf der 2 Mitglieder für den Direkt-Kanal channel_id={{.ChannelId}}"
+    "translation": "Fehler beim Abruf der 2 Mitglieder für den Direktnachrichtenkanal channel_id={{.ChannelId}}"
   },
   {
     "id": "api.post.make_direct_channel_visible.get_members.error",
@@ -1549,15 +1561,15 @@
   },
   {
     "id": "api.post.make_direct_channel_visible.save_pref.error",
-    "translation": "Fehler beim Speichern der Direktkanal-Einstellung user_id=%v other_user_id=%v err=%v"
+    "translation": "Fehler beim Speichern der Direktnachrichtenkanal-Einstellung user_id=%v other_user_id=%v err=%v"
   },
   {
     "id": "api.post.make_direct_channel_visible.update_pref.error",
-    "translation": "Fehler beim Speichern der Direktkanal-Einstellung user_id=%v other_user_id=%v err=%v"
+    "translation": "Fehler beim Speichern der Direktnachrichtenkanal-Einstellung user_id=%v other_user_id=%v err=%v"
   },
   {
     "id": "api.post.notification.member_profile.warn",
-    "translation": "Konnte Profil für Kanalmitglied laden, user_id=%v"
+    "translation": "Konnte Profil für Kanalmitglied nicht laden, user_id=%v"
   },
   {
     "id": "api.post.send_notifications.user_id.debug",
@@ -1928,12 +1940,32 @@
     "translation": "Initialisiere Status-API-Routen"
   },
   {
+    "id": "api.status.init.debug",
+    "translation": "Initialisiere Status-API-Routen"
+  },
+  {
     "id": "api.status.last_activity.error",
     "translation": "Fehler beim Update von LastActivityAt für user_id=%v und session_id=%v, err=%v"
   },
   {
     "id": "api.status.save_status.error",
     "translation": "Fehler beim Speichern des Status für user_id=%v, err=%v"
+  },
+  {
+    "id": "api.status.user_not_found.app_error",
+    "translation": "Benutzer nicht gefunden"
+  },
+  {
+    "id": "api.team.add_user_to_team.invalid_data.app_error",
+    "translation": "Ungültige Daten"
+  },
+  {
+    "id": "api.team.add_user_to_team.invalid_invite_id.app_error",
+    "translation": "Ungültige Einladungs-ID. Kein Team entspricht dieser Einladungs-ID"
+  },
+  {
+    "id": "api.team.add_user_to_team.missing_parameter.app_error",
+    "translation": "Parameter um Benutzer zu Team hinzuzufügen erforderlich."
   },
   {
     "id": "api.team.create_team.email_disabled.app_error",
@@ -2249,7 +2281,7 @@
   },
   {
     "id": "api.templates.upgrade_30_body.info",
-    "translation": "<h3 style='font-weight: normal; margin-top: 10px;'>IHRE MEHRFACHZUGÄNGE WURDEN AKTUALISIERT</h3>Ihr Mattermost-Server wurde auf Version 3.0 aktualisiert, bei dem Sie einen Zugang in mehreren Teams nutzen können.<br/><br/>Sie erhalten diese E-Mail weil die Aktualisierung festgestellt hat, dass diese E-Mail-Adresse oder der Benutzername mehrfach vorkommt.<br/><br/>Die folgenden Änderungen wurden durchgeführt: <br/><br/>{{if .EmailChanged }}- Die mehrfache E-Mail-Adresse des Zugangs bei dem `/{{.TeamName}}` Team wurde geändert auf `{{.Email}}`. Sie müssen zur Anmeldung E-Mail-Adresse und Passwort angeben. Sie können diese E-Mail-Adresse nutzen.<br/><br/>{{end}}{{if .UsernameChanged }}- Der mehrfach benutze Benutzername für das Team `/{{.TeamName}}` wurde geändert auf `{{.Username}}` zur Vermeidung von Missverständnissen.<br/><br/>{{end}} EMPFOHLENE HANDLUNGSWEISE: <br/><br/>Es wird empfohlen sich bei dem Teams mit den Mehrfachzugängen anzumelden und dort den bevorzugten Zugang auszuwählen, der künftig verwendet werden soll. <br/><br/>Dies gibt dem bevorzugtem Zugang Zugriff auf die öffentlichen Kanäle und die private Historie. Direktnachrichten zu den bisherigen Mehrfachgängen können Sie noch mit den alten Zugangsdaten abrufen. <br/><br/>WEITEREN INFORMATIONEN: <br/><br/>Weitere Informationen zur Mattermost 3.0 Aktualisierung finden Sie auf: <a href='http://www.mattermost.org/upgrading-to-mattermost-3-0/'>http://www.mattermost.org/upgrading-to-mattermost-3-0/</a><br/><br/>"
+    "translation": "<h3 style='font-weight: normal; margin-top: 10px;'>IHRE MEHRFACHZUGÄNGE WURDEN AKTUALISIERT</h3>Ihr Mattermost-Server wurde auf Version 3.0 aktualisiert, bei dem Sie einen Zugang in mehreren Teams nutzen können.<br/><br/>Sie erhalten diese E-Mail weil der Aktualisierungsprozess festgestellt hat, dass Ihre E-Mail-Adresse oder Ihr Benutzername mehrfach auf dem Server verwendet wurde.<br/><br/>Die folgenden Änderungen wurden durchgeführt: <br/><br/>{{if .EmailChanged }}- Die E-Mail-Adresse des Zugangs des Teams `/{{.TeamName}}` wurde geändert auf `{{.Email}}`. Sie müssen zur Anmeldung E-Mail-Adresse und Passwort angeben. Sie können diese E-Mail-Adresse nutzen.<br/><br/>{{end}}{{if .UsernameChanged }}- Der mehrfach benutze Benutzername für das Team `/{{.TeamName}}` wurde geändert auf `{{.Username}}` zur Vermeidung von Missverständnissen.<br/><br/>{{end}} EMPFOHLENE HANDLUNGSWEISE: <br/><br/>Es wird empfohlen sich bei dem Teams mit den Mehrfachzugängen anzumelden und dort den bevorzugten Zugang auszuwählen, der künftig verwendet werden soll. <br/><br/>Dies gibt dem bevorzugtem Zugang Zugriff auf die öffentlichen Kanäle und die private Historie. Direktnachrichten zu den bisherigen Mehrfachgängen können Sie noch mit den alten Zugangsdaten abrufen. <br/><br/>WEITEREN INFORMATIONEN: <br/><br/>Weitere Informationen zur Mattermost 3.0 Aktualisierung finden Sie auf: <a href='http://www.mattermost.org/upgrading-to-mattermost-3-0/'>http://www.mattermost.org/upgrading-to-mattermost-3-0/</a><br/><br/>"
   },
   {
     "id": "api.templates.upgrade_30_subject.info",
@@ -2753,7 +2785,7 @@
   },
   {
     "id": "api.webhook.create_outgoing.intersect.app_error",
-    "translation": "Ausgehende Webhooks vom selben Kanal können nicht dieselben Triggerwörter/Callback-URLs haben."
+    "translation": "Ausgehende Webhooks desselben Kanals können nicht dieselben Triggerwörter/Callback-URLs haben."
   },
   {
     "id": "api.webhook.create_outgoing.not_open.app_error",
@@ -2817,7 +2849,7 @@
   },
   {
     "id": "api.webhook.update_outgoing.intersect.app_error",
-    "translation": "Ausgehende Webhooks des selben Kanals können nicht dieselben Triggerwörter/Callback-URLs haben."
+    "translation": "Ausgehende Webhooks desselben Kanals können nicht dieselben Triggerwörter/Callback-URLs haben."
   },
   {
     "id": "api.webhook.update_outgoing.not_open.app_error",
@@ -3126,6 +3158,14 @@
   {
     "id": "authentication.permissions.manage_team_roles.name",
     "translation": "Teamrollen verwalten"
+  },
+  {
+    "id": "authentication.permissions.read_public_channel.description",
+    "translation": "Möglichkeit öffentliche Kanäle zu lesen"
+  },
+  {
+    "id": "authentication.permissions.read_public_channel.name",
+    "translation": "Öffentliche Kanäle lesen"
   },
   {
     "id": "authentication.permissions.team_invite_user.description",
@@ -3448,22 +3488,6 @@
     "translation": "Seite nicht gefunden"
   },
   {
-    "id": "leave_team_modal.desc",
-    "translation": "Sie werden von allen öffentlichen Kanälen und privaten Gruppen entfernt.  Wenn das Team privat ist können Sie nicht erneut beitreten.  Sind Sie sich sicher?"
-  },
-  {
-    "id": "leave_team_modal.no",
-    "translation": "Nein"
-  },
-  {
-    "id": "leave_team_modal.title",
-    "translation": "Dieses Team verlassen?"
-  },
-  {
-    "id": "leave_team_modal.yes",
-    "translation": "Ja"
-  },
-  {
     "id": "manaultesting.get_channel_id.no_found.debug",
     "translation": "Konnte Kanal nicht finden: %v, %v Möglichkeiten gesucht"
   },
@@ -3696,8 +3720,28 @@
     "translation": "Problem beim Schreiben der Anfrage"
   },
   {
+    "id": "model.client.upload_post_attachment.channel_id.app_error",
+    "translation": "Fehler beim Schreiben der Kanal ID in Multipart Form"
+  },
+  {
+    "id": "model.client.upload_post_attachment.file.app_error",
+    "translation": "Fehler beim Schreiben von File in Multipart Form"
+  },
+  {
+    "id": "model.client.upload_post_attachment.file_size.app_error",
+    "translation": "Fehler beim Schreiben von fileSize in Multipart Form"
+  },
+  {
+    "id": "model.client.upload_post_attachment.import_from.app_error",
+    "translation": "Fehler beim Schreiben von importForm in Multipart Form"
+  },
+  {
+    "id": "model.client.upload_post_attachment.writer.app_error",
+    "translation": "Fehler beim Schließen des Mulitpart Writer"
+  },
+  {
     "id": "model.client.upload_saml_cert.app_error",
-    "translation": "Error creating SAML certificate multipart form request"
+    "translation": "Fehler bei der Erstellung der SAML Zertifikat Multipart Form Anfrage"
   },
   {
     "id": "model.command.is_valid.create_at.app_error",
@@ -4680,6 +4724,14 @@
     "translation": "Es wurden keine Kanäle gefunden"
   },
   {
+    "id": "store.sql_channel.get_channels_by_ids.get.app_error",
+    "translation": "Die Kanäle konnten nicht abgerufen werden"
+  },
+  {
+    "id": "store.sql_channel.get_channels_by_ids.not_found.app_error",
+    "translation": "Kein Kanal gefunden"
+  },
+  {
     "id": "store.sql_channel.get_deleted_by_name.existing.app_error",
     "translation": "Der bestehende gelöschte Kanal konnte nicht gefunden werden"
   },
@@ -4725,11 +4777,11 @@
   },
   {
     "id": "store.sql_channel.get_public_channels.get.app_error",
-    "translation": "Es konnten nicht alle Kanäle abgerufen werden"
+    "translation": "Die öffentlichen Kanäle konnten nicht abgerufen werden"
   },
   {
     "id": "store.sql_channel.get_unread.app_error",
-    "translation": "Die ungelesenen Mitteilungen des Teams konnten nicht abgerufen werden"
+    "translation": "Die ungelesenen Mitteilungen des Kanals konnten nicht abgerufen werden"
   },
   {
     "id": "store.sql_channel.increment_mention_count.app_error",
@@ -4749,7 +4801,7 @@
   },
   {
     "id": "store.sql_channel.pinned_posts.app_error",
-    "translation": "We couldn't find the pinned posts"
+    "translation": "Die angepinnten Nachrichten konnten nicht gefunden werden"
   },
   {
     "id": "store.sql_channel.remove_member.app_error",
@@ -5444,6 +5496,14 @@
     "translation": "Das Teammitglied konnte nicht gespeichert werden"
   },
   {
+    "id": "store.sql_team.search_all_team.app_error",
+    "translation": "Es trat ein Fehler beim Suchen nach Teams auf"
+  },
+  {
+    "id": "store.sql_team.search_open_team.app_error",
+    "translation": "Es trat ein Fehler beim Suchen nach offenen Teams auf"
+  },
+  {
     "id": "store.sql_team.update.app_error",
     "translation": "Das Team konnte nicht aktualisiert werden"
   },
@@ -6014,5 +6074,21 @@
   {
     "id": "web.watcher_fail.error",
     "translation": "Fehler beim Erstellen der Ordner Überwachung %v"
+  },
+  {
+    "id": "wsapi.status.init.debug",
+    "translation": "Initialisiere Status WebSocket-API-Routen"
+  },
+  {
+    "id": "wsapi.system.init.debug",
+    "translation": "Initialisiere System WebSocket-API-Routen"
+  },
+  {
+    "id": "wsapi.user.init.debug",
+    "translation": "Initialisiere Benutzer WebSocket-API-Routen"
+  },
+  {
+    "id": "wsapi.webrtc.init.debug",
+    "translation": "Initialisiere webrtc WebSocket-API-Routen"
   }
 ]

@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2017-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 package api4
@@ -6,6 +6,8 @@ package api4
 import (
 	"fmt"
 	"net/http"
+	"reflect"
+	"sort"
 	"strconv"
 	"testing"
 
@@ -26,6 +28,7 @@ func TestCreateChannel(t *testing.T) {
 
 	rchannel, resp := Client.CreateChannel(channel)
 	CheckNoError(t, resp)
+	CheckCreatedStatus(t, resp)
 
 	if rchannel.Name != channel.Name {
 		t.Fatal("names did not match")
@@ -365,6 +368,78 @@ func TestCreateDirectChannel(t *testing.T) {
 	CheckNoError(t, resp)
 }
 
+func TestCreateGroupChannel(t *testing.T) {
+	th := Setup().InitBasic().InitSystemAdmin()
+	defer TearDown()
+	Client := th.Client
+	user := th.BasicUser
+	user2 := th.BasicUser2
+	user3 := th.CreateUser()
+
+	userIds := []string{user.Id, user2.Id, user3.Id}
+
+	rgc, resp := Client.CreateGroupChannel(userIds)
+	CheckNoError(t, resp)
+	CheckCreatedStatus(t, resp)
+
+	if rgc == nil {
+		t.Fatal("should have created a group channel")
+	}
+
+	if rgc.Type != model.CHANNEL_GROUP {
+		t.Fatal("should have created a channel of group type")
+	}
+
+	m, _ := app.GetChannelMembersPage(rgc.Id, 0, 10)
+	if len(*m) != 3 {
+		t.Fatal("should have 3 channel members")
+	}
+
+	// saving duplicate group channel
+	rgc2, resp := Client.CreateGroupChannel([]string{user3.Id, user2.Id})
+	CheckNoError(t, resp)
+
+	if rgc.Id != rgc2.Id {
+		t.Fatal("should have returned existing channel")
+	}
+
+	m2, _ := app.GetChannelMembersPage(rgc2.Id, 0, 10)
+	if !reflect.DeepEqual(*m, *m2) {
+		t.Fatal("should be equal")
+	}
+
+	rgc, resp = Client.CreateGroupChannel([]string{user2.Id})
+	CheckBadRequestStatus(t, resp)
+
+	user4 := th.CreateUser()
+	user5 := th.CreateUser()
+	user6 := th.CreateUser()
+	user7 := th.CreateUser()
+	user8 := th.CreateUser()
+	user9 := th.CreateUser()
+
+	rgc, resp = Client.CreateGroupChannel([]string{user.Id, user2.Id, user3.Id, user4.Id, user5.Id, user6.Id, user7.Id, user8.Id, user9.Id})
+	CheckBadRequestStatus(t, resp)
+
+	if rgc != nil {
+		t.Fatal("should return nil")
+	}
+
+	_, resp = Client.CreateGroupChannel([]string{user.Id, user2.Id, user3.Id, GenerateTestId()})
+	CheckBadRequestStatus(t, resp)
+
+	_, resp = Client.CreateGroupChannel([]string{user.Id, user2.Id, user3.Id, "junk"})
+	CheckBadRequestStatus(t, resp)
+
+	Client.Logout()
+
+	_, resp = Client.CreateGroupChannel(userIds)
+	CheckUnauthorizedStatus(t, resp)
+
+	_, resp = th.SystemAdminClient.CreateGroupChannel(userIds)
+	CheckNoError(t, resp)
+}
+
 func TestGetChannel(t *testing.T) {
 	th := Setup().InitBasic().InitSystemAdmin()
 	defer TearDown()
@@ -494,6 +569,68 @@ func TestGetPublicChannelsForTeam(t *testing.T) {
 	CheckNoError(t, resp)
 }
 
+func TestGetPublicChannelsByIdsForTeam(t *testing.T) {
+	th := Setup().InitBasic().InitSystemAdmin()
+	defer TearDown()
+	Client := th.Client
+	teamId := th.BasicTeam.Id
+	input := []string{th.BasicChannel.Id}
+	output := []string{th.BasicChannel.DisplayName}
+
+	channels, resp := Client.GetPublicChannelsByIdsForTeam(teamId, input)
+	CheckNoError(t, resp)
+
+	if len(*channels) != 1 {
+		t.Fatal("should return 1 channel")
+	}
+
+	if (*channels)[0].DisplayName != output[0] {
+		t.Fatal("missing channel")
+	}
+
+	input = append(input, GenerateTestId())
+	input = append(input, th.BasicChannel2.Id)
+	input = append(input, th.BasicPrivateChannel.Id)
+	output = append(output, th.BasicChannel2.DisplayName)
+	sort.Strings(output)
+
+	channels, resp = Client.GetPublicChannelsByIdsForTeam(teamId, input)
+	CheckNoError(t, resp)
+
+	if len(*channels) != 2 {
+		t.Fatal("should return 2 channels")
+	}
+
+	for i, c := range *channels {
+		if c.DisplayName != output[i] {
+			t.Fatal("missing channel")
+		}
+	}
+
+	_, resp = Client.GetPublicChannelsByIdsForTeam(GenerateTestId(), input)
+	CheckForbiddenStatus(t, resp)
+
+	_, resp = Client.GetPublicChannelsByIdsForTeam(teamId, []string{})
+	CheckBadRequestStatus(t, resp)
+
+	_, resp = Client.GetPublicChannelsByIdsForTeam(teamId, []string{"junk"})
+	CheckBadRequestStatus(t, resp)
+
+	_, resp = Client.GetPublicChannelsByIdsForTeam(teamId, []string{GenerateTestId()})
+	CheckNotFoundStatus(t, resp)
+
+	_, resp = Client.GetPublicChannelsByIdsForTeam(teamId, []string{th.BasicPrivateChannel.Id})
+	CheckNotFoundStatus(t, resp)
+
+	Client.Logout()
+
+	_, resp = Client.GetPublicChannelsByIdsForTeam(teamId, input)
+	CheckUnauthorizedStatus(t, resp)
+
+	_, resp = th.SystemAdminClient.GetPublicChannelsByIdsForTeam(teamId, input)
+	CheckNoError(t, resp)
+}
+
 func TestGetChannelsForTeamForUser(t *testing.T) {
 	th := Setup().InitBasic().InitSystemAdmin()
 	defer TearDown()
@@ -616,7 +753,7 @@ func TestDeleteChannel(t *testing.T) {
 
 	if ch, err := app.GetChannel(publicChannel1.Id); err == nil && ch.DeleteAt == 0 {
 		t.Fatal("should have failed to get deleted channel")
-	} else if err := app.JoinChannel(ch, user2.Id, ""); err == nil {
+	} else if err := app.JoinChannel(ch, user2.Id); err == nil {
 		t.Fatal("should have failed to join deleted channel")
 	}
 
@@ -650,6 +787,30 @@ func TestDeleteChannel(t *testing.T) {
 	if pass {
 		t.Fatal("should have failed")
 	}
+
+	// check system admin can delete a channel without any appropriate team or channel membership.
+	sdTeam := th.CreateTeamWithClient(Client)
+	sdPublicChannel := &model.Channel{
+		DisplayName: "dn_" + model.NewId(),
+		Name:        GenerateTestChannelName(),
+		Type:        model.CHANNEL_OPEN,
+		TeamId:      sdTeam.Id,
+	}
+	sdPublicChannel, resp = Client.CreateChannel(sdPublicChannel)
+	CheckNoError(t, resp)
+	_, resp = th.SystemAdminClient.DeleteChannel(sdPublicChannel.Id)
+	CheckNoError(t, resp)
+
+	sdPrivateChannel := &model.Channel{
+		DisplayName: "dn_" + model.NewId(),
+		Name:        GenerateTestChannelName(),
+		Type:        model.CHANNEL_PRIVATE,
+		TeamId:      sdTeam.Id,
+	}
+	sdPrivateChannel, resp = Client.CreateChannel(sdPrivateChannel)
+	CheckNoError(t, resp)
+	_, resp = th.SystemAdminClient.DeleteChannel(sdPrivateChannel.Id)
+	CheckNoError(t, resp)
 
 	th.LoginBasic()
 	publicChannel5 := th.CreatePublicChannel()
@@ -1259,6 +1420,45 @@ func TestGetChannelStats(t *testing.T) {
 	CheckNoError(t, resp)
 }
 
+func TestGetPinnedPosts(t *testing.T) {
+	th := Setup().InitBasic().InitSystemAdmin()
+	defer TearDown()
+	Client := th.Client
+	channel := th.BasicChannel
+
+	posts, resp := Client.GetPinnedPosts(channel.Id, "")
+	CheckNoError(t, resp)
+	if len(posts.Posts) != 0 {
+		t.Fatal("should not have gotten a pinned post")
+	}
+
+	pinnedPost := th.CreatePinnedPost()
+	posts, resp = Client.GetPinnedPosts(channel.Id, "")
+	CheckNoError(t, resp)
+	if len(posts.Posts) != 1 {
+		t.Fatal("should have returned 1 pinned post")
+	}
+	if _, ok := posts.Posts[pinnedPost.Id]; !ok {
+		t.Fatal("missing pinned post")
+	}
+
+	posts, resp = Client.GetPinnedPosts(channel.Id, resp.Etag)
+	CheckEtag(t, posts, resp)
+
+	_, resp = Client.GetPinnedPosts(GenerateTestId(), "")
+	CheckForbiddenStatus(t, resp)
+
+	_, resp = Client.GetPinnedPosts("junk", "")
+	CheckBadRequestStatus(t, resp)
+
+	Client.Logout()
+	_, resp = Client.GetPinnedPosts(channel.Id, "")
+	CheckUnauthorizedStatus(t, resp)
+
+	_, resp = th.SystemAdminClient.GetPinnedPosts(channel.Id, "")
+	CheckNoError(t, resp)
+}
+
 func TestUpdateChannelRoles(t *testing.T) {
 	th := Setup().InitBasic().InitSystemAdmin()
 	defer TearDown()
@@ -1338,17 +1538,73 @@ func TestUpdateChannelRoles(t *testing.T) {
 	CheckForbiddenStatus(t, resp)
 }
 
+func TestUpdateChannelNotifyProps(t *testing.T) {
+	th := Setup().InitBasic().InitSystemAdmin()
+	defer TearDown()
+	Client := th.Client
+
+	props := map[string]string{}
+	props[model.DESKTOP_NOTIFY_PROP] = model.CHANNEL_NOTIFY_MENTION
+	props[model.MARK_UNREAD_NOTIFY_PROP] = model.CHANNEL_MARK_UNREAD_MENTION
+
+	pass, resp := Client.UpdateChannelNotifyProps(th.BasicChannel.Id, th.BasicUser.Id, props)
+	CheckNoError(t, resp)
+
+	if !pass {
+		t.Fatal("should have passed")
+	}
+
+	member, err := app.GetChannelMember(th.BasicChannel.Id, th.BasicUser.Id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if member.NotifyProps[model.DESKTOP_NOTIFY_PROP] != model.CHANNEL_NOTIFY_MENTION {
+		t.Fatal("bad update")
+	} else if member.NotifyProps[model.MARK_UNREAD_NOTIFY_PROP] != model.CHANNEL_MARK_UNREAD_MENTION {
+		t.Fatal("bad update")
+	}
+
+	_, resp = Client.UpdateChannelNotifyProps("junk", th.BasicUser.Id, props)
+	CheckBadRequestStatus(t, resp)
+
+	_, resp = Client.UpdateChannelNotifyProps(th.BasicChannel.Id, "junk", props)
+	CheckBadRequestStatus(t, resp)
+
+	_, resp = Client.UpdateChannelNotifyProps(model.NewId(), th.BasicUser.Id, props)
+	CheckNotFoundStatus(t, resp)
+
+	_, resp = Client.UpdateChannelNotifyProps(th.BasicChannel.Id, model.NewId(), props)
+	CheckForbiddenStatus(t, resp)
+
+	_, resp = Client.UpdateChannelNotifyProps(th.BasicChannel.Id, th.BasicUser.Id, map[string]string{})
+	CheckNoError(t, resp)
+
+	Client.Logout()
+	_, resp = Client.UpdateChannelNotifyProps(th.BasicChannel.Id, th.BasicUser.Id, props)
+	CheckUnauthorizedStatus(t, resp)
+
+	_, resp = th.SystemAdminClient.UpdateChannelNotifyProps(th.BasicChannel.Id, th.BasicUser.Id, props)
+	CheckNoError(t, resp)
+}
+
 func TestAddChannelMember(t *testing.T) {
 	th := Setup().InitBasic().InitSystemAdmin()
 	defer TearDown()
 	Client := th.Client
 	user := th.BasicUser
 	user2 := th.BasicUser2
+	team := th.BasicTeam
 	publicChannel := th.CreatePublicChannel()
 	privateChannel := th.CreatePrivateChannel()
 
+	user3 := th.CreateUserWithClient(th.SystemAdminClient)
+	_, resp := th.SystemAdminClient.AddTeamMember(team.Id, user3.Id, "", "", team.InviteId)
+	CheckNoError(t, resp)
+
 	cm, resp := Client.AddChannelMember(publicChannel.Id, user2.Id)
 	CheckNoError(t, resp)
+	CheckCreatedStatus(t, resp)
 
 	if cm.ChannelId != publicChannel.Id {
 		t.Fatal("should have returned exact channel")
@@ -1428,10 +1684,139 @@ func TestAddChannelMember(t *testing.T) {
 
 	_, resp = th.SystemAdminClient.AddChannelMember(privateChannel.Id, user2.Id)
 	CheckNoError(t, resp)
+
+	// Test policy does not apply to TE.
+	restrictPrivateChannel := *utils.Cfg.TeamSettings.RestrictPrivateChannelManageMembers
+	defer func() {
+		*utils.Cfg.TeamSettings.RestrictPrivateChannelManageMembers = restrictPrivateChannel
+	}()
+	*utils.Cfg.TeamSettings.RestrictPrivateChannelManageMembers = model.PERMISSIONS_CHANNEL_ADMIN
+	utils.SetDefaultRolesBasedOnConfig()
+
+	Client.Login(user2.Username, user2.Password)
+	privateChannel = th.CreatePrivateChannel()
+	_, resp = Client.AddChannelMember(privateChannel.Id, user.Id)
+	CheckNoError(t, resp)
+	Client.Logout()
+
+	Client.Login(user.Username, user.Password)
+	_, resp = Client.AddChannelMember(privateChannel.Id, user3.Id)
+	CheckNoError(t, resp)
+	Client.Logout()
+
+	// Add a license
+	isLicensed := utils.IsLicensed
+	license := utils.License
+	defer func() {
+		utils.IsLicensed = isLicensed
+		utils.License = license
+		utils.SetDefaultRolesBasedOnConfig()
+	}()
+	*utils.Cfg.TeamSettings.RestrictPrivateChannelManageMembers = model.PERMISSIONS_ALL
+	utils.IsLicensed = true
+	utils.License = &model.License{Features: &model.Features{}}
+	utils.License.Features.SetDefaults()
+	utils.SetDefaultRolesBasedOnConfig()
+
+	// Check that a regular channel user can add other users.
+	Client.Login(user2.Username, user2.Password)
+	privateChannel = th.CreatePrivateChannel()
+	_, resp = Client.AddChannelMember(privateChannel.Id, user.Id)
+	CheckNoError(t, resp)
+	Client.Logout()
+
+	Client.Login(user.Username, user.Password)
+	_, resp = Client.AddChannelMember(privateChannel.Id, user3.Id)
+	CheckNoError(t, resp)
+	Client.Logout()
+
+	// Test with CHANNEL_ADMIN level permission.
+	*utils.Cfg.TeamSettings.RestrictPrivateChannelManageMembers = model.PERMISSIONS_CHANNEL_ADMIN
+	utils.IsLicensed = true
+	utils.License = &model.License{Features: &model.Features{}}
+	utils.License.Features.SetDefaults()
+	utils.SetDefaultRolesBasedOnConfig()
+
+	Client.Login(user2.Username, user2.Password)
+	privateChannel = th.CreatePrivateChannel()
+	_, resp = Client.AddChannelMember(privateChannel.Id, user.Id)
+	CheckNoError(t, resp)
+	Client.Logout()
+
+	Client.Login(user.Username, user.Password)
+	_, resp = Client.AddChannelMember(privateChannel.Id, user3.Id)
+	CheckForbiddenStatus(t, resp)
+	Client.Logout()
+
+	MakeUserChannelAdmin(user, privateChannel)
+	app.InvalidateAllCaches()
+	utils.IsLicensed = true
+	utils.License = &model.License{Features: &model.Features{}}
+	utils.License.Features.SetDefaults()
+	utils.SetDefaultRolesBasedOnConfig()
+
+	Client.Login(user.Username, user.Password)
+	_, resp = Client.AddChannelMember(privateChannel.Id, user3.Id)
+	CheckNoError(t, resp)
+	Client.Logout()
+
+	// Test with TEAM_ADMIN level permission.
+	*utils.Cfg.TeamSettings.RestrictPrivateChannelManageMembers = model.PERMISSIONS_TEAM_ADMIN
+	utils.IsLicensed = true
+	utils.License = &model.License{Features: &model.Features{}}
+	utils.License.Features.SetDefaults()
+	utils.SetDefaultRolesBasedOnConfig()
+
+	Client.Login(user2.Username, user2.Password)
+	privateChannel = th.CreatePrivateChannel()
+	_, resp = th.SystemAdminClient.AddChannelMember(privateChannel.Id, user.Id)
+	CheckNoError(t, resp)
+	Client.Logout()
+
+	Client.Login(user.Username, user.Password)
+	_, resp = Client.AddChannelMember(privateChannel.Id, user3.Id)
+	CheckForbiddenStatus(t, resp)
+	Client.Logout()
+
+	UpdateUserToTeamAdmin(user, team)
+	app.InvalidateAllCaches()
+	utils.IsLicensed = true
+	utils.License = &model.License{Features: &model.Features{}}
+	utils.License.Features.SetDefaults()
+	utils.SetDefaultRolesBasedOnConfig()
+
+	Client.Login(user.Username, user.Password)
+	_, resp = Client.AddChannelMember(privateChannel.Id, user3.Id)
+	CheckNoError(t, resp)
+	Client.Logout()
+
+	// Test with SYSTEM_ADMIN level permission.
+	*utils.Cfg.TeamSettings.RestrictPrivateChannelManageMembers = model.PERMISSIONS_SYSTEM_ADMIN
+	utils.IsLicensed = true
+	utils.License = &model.License{Features: &model.Features{}}
+	utils.License.Features.SetDefaults()
+	utils.SetDefaultRolesBasedOnConfig()
+
+	Client.Login(user2.Username, user2.Password)
+	privateChannel = th.CreatePrivateChannel()
+	_, resp = th.SystemAdminClient.AddChannelMember(privateChannel.Id, user.Id)
+	CheckNoError(t, resp)
+	Client.Logout()
+
+	Client.Login(user.Username, user.Password)
+	_, resp = Client.AddChannelMember(privateChannel.Id, user3.Id)
+	CheckForbiddenStatus(t, resp)
+	Client.Logout()
+
+	_, resp = th.SystemAdminClient.AddChannelMember(privateChannel.Id, user3.Id)
+	CheckNoError(t, resp)
 }
 
 func TestRemoveChannelMember(t *testing.T) {
 	th := Setup().InitBasic().InitSystemAdmin()
+	user1 := th.BasicUser
+	user2 := th.BasicUser2
+	team := th.BasicTeam
 	defer TearDown()
 	Client := th.Client
 
@@ -1480,5 +1865,119 @@ func TestRemoveChannelMember(t *testing.T) {
 	CheckForbiddenStatus(t, resp)
 
 	_, resp = th.SystemAdminClient.RemoveUserFromChannel(private.Id, th.BasicUser.Id)
+	CheckNoError(t, resp)
+
+	th.LoginBasic()
+	UpdateUserToNonTeamAdmin(user1, team)
+	app.InvalidateAllCaches()
+
+	// Test policy does not apply to TE.
+	restrictPrivateChannel := *utils.Cfg.TeamSettings.RestrictPrivateChannelManageMembers
+	defer func() {
+		*utils.Cfg.TeamSettings.RestrictPrivateChannelManageMembers = restrictPrivateChannel
+	}()
+	*utils.Cfg.TeamSettings.RestrictPrivateChannelManageMembers = model.PERMISSIONS_CHANNEL_ADMIN
+	utils.SetDefaultRolesBasedOnConfig()
+
+	privateChannel := th.CreateChannelWithClient(th.SystemAdminClient, model.CHANNEL_PRIVATE)
+	_, resp = th.SystemAdminClient.AddChannelMember(privateChannel.Id, user1.Id)
+	CheckNoError(t, resp)
+	_, resp = th.SystemAdminClient.AddChannelMember(privateChannel.Id, user2.Id)
+	CheckNoError(t, resp)
+
+	_, resp = Client.RemoveUserFromChannel(privateChannel.Id, user2.Id)
+	CheckNoError(t, resp)
+
+	// Add a license
+	isLicensed := utils.IsLicensed
+	license := utils.License
+	defer func() {
+		utils.IsLicensed = isLicensed
+		utils.License = license
+		utils.SetDefaultRolesBasedOnConfig()
+	}()
+	*utils.Cfg.TeamSettings.RestrictPrivateChannelManageMembers = model.PERMISSIONS_ALL
+	utils.IsLicensed = true
+	utils.License = &model.License{Features: &model.Features{}}
+	utils.License.Features.SetDefaults()
+	utils.SetDefaultRolesBasedOnConfig()
+
+	// Check that a regular channel user can remove other users.
+	privateChannel = th.CreateChannelWithClient(th.SystemAdminClient, model.CHANNEL_PRIVATE)
+	_, resp = th.SystemAdminClient.AddChannelMember(privateChannel.Id, user1.Id)
+	CheckNoError(t, resp)
+	_, resp = th.SystemAdminClient.AddChannelMember(privateChannel.Id, user2.Id)
+	CheckNoError(t, resp)
+
+	_, resp = Client.RemoveUserFromChannel(privateChannel.Id, user2.Id)
+	CheckNoError(t, resp)
+
+	// Test with CHANNEL_ADMIN level permission.
+	*utils.Cfg.TeamSettings.RestrictPrivateChannelManageMembers = model.PERMISSIONS_CHANNEL_ADMIN
+	utils.IsLicensed = true
+	utils.License = &model.License{Features: &model.Features{}}
+	utils.License.Features.SetDefaults()
+	utils.SetDefaultRolesBasedOnConfig()
+
+	privateChannel = th.CreateChannelWithClient(th.SystemAdminClient, model.CHANNEL_PRIVATE)
+	_, resp = th.SystemAdminClient.AddChannelMember(privateChannel.Id, user1.Id)
+	CheckNoError(t, resp)
+	_, resp = th.SystemAdminClient.AddChannelMember(privateChannel.Id, user2.Id)
+	CheckNoError(t, resp)
+
+	_, resp = Client.RemoveUserFromChannel(privateChannel.Id, user2.Id)
+	CheckForbiddenStatus(t, resp)
+
+	MakeUserChannelAdmin(user1, privateChannel)
+	app.InvalidateAllCaches()
+	utils.IsLicensed = true
+	utils.License = &model.License{Features: &model.Features{}}
+	utils.License.Features.SetDefaults()
+
+	_, resp = Client.RemoveUserFromChannel(privateChannel.Id, user2.Id)
+	CheckNoError(t, resp)
+
+	// Test with TEAM_ADMIN level permission.
+	*utils.Cfg.TeamSettings.RestrictPrivateChannelManageMembers = model.PERMISSIONS_TEAM_ADMIN
+	utils.IsLicensed = true
+	utils.License = &model.License{Features: &model.Features{}}
+	utils.License.Features.SetDefaults()
+	utils.SetDefaultRolesBasedOnConfig()
+
+	privateChannel = th.CreateChannelWithClient(th.SystemAdminClient, model.CHANNEL_PRIVATE)
+	_, resp = th.SystemAdminClient.AddChannelMember(privateChannel.Id, user1.Id)
+	CheckNoError(t, resp)
+	_, resp = th.SystemAdminClient.AddChannelMember(privateChannel.Id, user2.Id)
+	CheckNoError(t, resp)
+
+	_, resp = Client.RemoveUserFromChannel(privateChannel.Id, user2.Id)
+	CheckForbiddenStatus(t, resp)
+
+	UpdateUserToTeamAdmin(user1, team)
+	app.InvalidateAllCaches()
+	utils.IsLicensed = true
+	utils.License = &model.License{Features: &model.Features{}}
+	utils.License.Features.SetDefaults()
+
+	_, resp = Client.RemoveUserFromChannel(privateChannel.Id, user2.Id)
+	CheckNoError(t, resp)
+
+	// Test with SYSTEM_ADMIN level permission.
+	*utils.Cfg.TeamSettings.RestrictPrivateChannelManageMembers = model.PERMISSIONS_SYSTEM_ADMIN
+	utils.IsLicensed = true
+	utils.License = &model.License{Features: &model.Features{}}
+	utils.License.Features.SetDefaults()
+	utils.SetDefaultRolesBasedOnConfig()
+
+	privateChannel = th.CreateChannelWithClient(th.SystemAdminClient, model.CHANNEL_PRIVATE)
+	_, resp = th.SystemAdminClient.AddChannelMember(privateChannel.Id, user1.Id)
+	CheckNoError(t, resp)
+	_, resp = th.SystemAdminClient.AddChannelMember(privateChannel.Id, user2.Id)
+	CheckNoError(t, resp)
+
+	_, resp = Client.RemoveUserFromChannel(privateChannel.Id, user2.Id)
+	CheckForbiddenStatus(t, resp)
+
+	_, resp = th.SystemAdminClient.RemoveUserFromChannel(privateChannel.Id, user2.Id)
 	CheckNoError(t, resp)
 }

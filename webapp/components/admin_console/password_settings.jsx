@@ -1,4 +1,4 @@
-// Copyright (c) 2016 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2016-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 import React from 'react';
@@ -53,9 +53,10 @@ export default class PasswordSettings extends AdminSettings {
             this.sampleErrorMsg = (
                 <FormattedMessage
                     id={sampleErrorMsgId}
-                    default='Your password must be at least {min} characters.'
+                    default='Your password must contain between {min} and {max} characters.'
                     values={{
-                        min: (this.state.passwordMinimumLength || Constants.MIN_PASSWORD_LENGTH)
+                        min: (this.state.passwordMinimumLength || Constants.MIN_PASSWORD_LENGTH),
+                        max: Constants.MAX_PASSWORD_LENGTH
                     }}
                 />
             );
@@ -115,9 +116,10 @@ export default class PasswordSettings extends AdminSettings {
             return (
                 <FormattedMessage
                     id={sampleErrorMsgId}
-                    default='Your password must be at least {min} characters.'
+                    default='Your password must contain between {min} and {max} characters.'
                     values={{
-                        min: (minLength || Constants.MIN_PASSWORD_LENGTH)
+                        min: (minLength || Constants.MIN_PASSWORD_LENGTH),
+                        max: Constants.MAX_PASSWORD_LENGTH
                     }}
                 />
             );
@@ -138,12 +140,10 @@ export default class PasswordSettings extends AdminSettings {
 
     renderTitle() {
         return (
-            <h3>
-                <FormattedMessage
-                    id='admin.security.password'
-                    defaultMessage='Password'
-                />
-            </h3>
+            <FormattedMessage
+                id='admin.security.password'
+                defaultMessage='Password'
+            />
         );
     }
 

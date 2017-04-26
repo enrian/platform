@@ -1,4 +1,4 @@
-// Copyright (c) 2016 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2016-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 import TestHelper from 'tests/helpers/client-test-helper.jsx';
@@ -642,23 +642,6 @@ describe('Client.User', function() {
                 ids,
                 function(data) {
                     expect(data[TestHelper.basicUser().id]).not.toBeNull();
-                    done();
-                },
-                function(err) {
-                    done.fail(new Error(err.message));
-                }
-            );
-        });
-    });
-
-    test('setActiveChannel', function(done) {
-        TestHelper.initBasic(done, () => {
-            var ids = [];
-            ids.push(TestHelper.basicUser().id);
-
-            TestHelper.basicClient().setActiveChannel(
-                TestHelper.basicChannel().id,
-                function() {
                     done();
                 },
                 function(err) {

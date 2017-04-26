@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 package model
@@ -233,7 +233,7 @@ func IsReservedTeamName(s string) bool {
 
 func IsValidTeamName(s string) bool {
 
-	if !IsValidAlphaNum(s, false) {
+	if !IsValidAlphaNum(s) {
 		return false
 	}
 

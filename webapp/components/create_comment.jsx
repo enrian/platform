@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 import $ from 'jquery';
@@ -51,6 +51,7 @@ export default class CreateComment extends React.Component {
         this.handleUploadError = this.handleUploadError.bind(this);
         this.removePreview = this.removePreview.bind(this);
         this.getFileCount = this.getFileCount.bind(this);
+        this.getFileUploadTarget = this.getFileUploadTarget.bind(this);
         this.onPreferenceChange = this.onPreferenceChange.bind(this);
         this.focusTextbox = this.focusTextbox.bind(this);
         this.showPostDeletedModal = this.showPostDeletedModal.bind(this);
@@ -497,6 +498,10 @@ export default class CreateComment extends React.Component {
         return this.state.fileInfos.length + this.state.uploadsInProgress.length;
     }
 
+    getFileUploadTarget() {
+        return this.refs.textbox;
+    }
+
     focusTextbox(keepFocus = false) {
         if (keepFocus || !Utils.isMobile()) {
             this.refs.textbox.focus();
@@ -580,7 +585,7 @@ export default class CreateComment extends React.Component {
             emojiPicker = (
                 <EmojiPicker
                     onEmojiClick={this.handleEmojiClick}
-                    topOrBottom='bottom'
+                    pickerLocation='bottom'
                     emojiOffset={this.state.emojiOffset}
                     outsideClick={this.closeEmoji}
                 />
@@ -612,6 +617,7 @@ export default class CreateComment extends React.Component {
                             <FileUpload
                                 ref='fileUpload'
                                 getFileCount={this.getFileCount}
+                                getTarget={this.getFileUploadTarget}
                                 onFileUploadChange={this.handleFileUploadChange}
                                 onUploadStart={this.handleUploadStart}
                                 onFileUpload={this.handleFileUploadComplete}

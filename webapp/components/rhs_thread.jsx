@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 import CreateComment from './create_comment.jsx';
@@ -324,7 +324,8 @@ export default class RhsThread extends React.Component {
         const postsArray = this.state.postsArray;
         const selected = this.state.selected;
         const profiles = this.state.profiles || {};
-        let previousPostDay = Utils.getDateForUnixTicks(selected.create_at);
+        const rootPostDay = Utils.getDateForUnixTicks(selected.create_at);
+        let previousPostDay = rootPostDay;
 
         if (postsArray == null || selected == null) {
             return (
@@ -423,9 +424,12 @@ export default class RhsThread extends React.Component {
                     renderView={renderView}
                     onScroll={this.handleScroll}
                 >
-                    <div className='post-right__scroll'>
+                    <div
+                        ref='post-right__scroll'
+                        className='post-right__scroll'
+                    >
                         <DateSeparator
-                            date={previousPostDay}
+                            date={rootPostDay.toDateString()}
                         />
                         <RootPost
                             ref={selected.id}

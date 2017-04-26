@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 package store
@@ -149,10 +149,14 @@ func TestChannelStoreUpdate(t *testing.T) {
 	o1.DisplayName = "Name"
 	o1.Name = "a" + model.NewId() + "b"
 	o1.Type = model.CHANNEL_OPEN
+	Must(store.Channel().Save(&o1))
 
-	if err := (<-store.Channel().Save(&o1)).Err; err != nil {
-		t.Fatal(err)
-	}
+	o2 := model.Channel{}
+	o2.TeamId = o1.TeamId
+	o2.DisplayName = "Name"
+	o2.Name = "a" + model.NewId() + "b"
+	o2.Type = model.CHANNEL_OPEN
+	Must(store.Channel().Save(&o2))
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -168,6 +172,11 @@ func TestChannelStoreUpdate(t *testing.T) {
 	o1.Id = model.NewId()
 	if err := (<-store.Channel().Update(&o1)).Err; err == nil {
 		t.Fatal("Update should have faile because id change")
+	}
+
+	o2.Name = o1.Name
+	if err := (<-store.Channel().Update(&o2)).Err; err == nil {
+		t.Fatal("Update should have failed because of existing name")
 	}
 }
 
@@ -321,6 +330,15 @@ func TestChannelStoreGet(t *testing.T) {
 			t.Fatal("too little")
 		}
 	}
+
+	if r3 := <-store.Channel().GetTeamChannels(o1.TeamId); r3.Err != nil {
+		t.Fatal(r3.Err)
+	} else {
+		channels := r3.Data.(*model.ChannelList)
+		if len(*channels) == 0 {
+			t.Fatal("too little")
+		}
+	}
 }
 
 func TestChannelStoreGetForPost(t *testing.T) {
@@ -421,6 +439,10 @@ func TestChannelStoreDelete(t *testing.T) {
 	t.Log(cresult.Err)
 	if cresult.Err.Id != "store.sql_channel.get_channels.not_found.app_error" {
 		t.Fatal("no channels should be found")
+	}
+
+	if r := <-store.Channel().PermanentDeleteByTeam(o1.TeamId); r.Err != nil {
+		t.Fatal(r.Err)
 	}
 }
 
@@ -934,6 +956,87 @@ func TestChannelStoreGetPublicChannelsForTeam(t *testing.T) {
 	}
 }
 
+func TestChannelStoreGetPublicChannelsByIdsForTeam(t *testing.T) {
+	Setup()
+
+	teamId1 := model.NewId()
+
+	oc1 := model.Channel{}
+	oc1.TeamId = teamId1
+	oc1.DisplayName = "OpenChannel1Team1"
+	oc1.Name = "a" + model.NewId() + "b"
+	oc1.Type = model.CHANNEL_OPEN
+	Must(store.Channel().Save(&oc1))
+
+	oc2 := model.Channel{}
+	oc2.TeamId = model.NewId()
+	oc2.DisplayName = "OpenChannel2TeamOther"
+	oc2.Name = "a" + model.NewId() + "b"
+	oc2.Type = model.CHANNEL_OPEN
+	Must(store.Channel().Save(&oc2))
+
+	pc3 := model.Channel{}
+	pc3.TeamId = teamId1
+	pc3.DisplayName = "PrivateChannel3Team1"
+	pc3.Name = "a" + model.NewId() + "b"
+	pc3.Type = model.CHANNEL_PRIVATE
+	Must(store.Channel().Save(&pc3))
+
+	cids := []string{oc1.Id}
+	cresult := <-store.Channel().GetPublicChannelsByIdsForTeam(teamId1, cids)
+	list := cresult.Data.(*model.ChannelList)
+
+	if len(*list) != 1 {
+		t.Fatal("should return 1 channel")
+	}
+
+	if (*list)[0].Id != oc1.Id {
+		t.Fatal("missing channel")
+	}
+
+	cids = append(cids, oc2.Id)
+	cids = append(cids, model.NewId())
+	cids = append(cids, pc3.Id)
+	cresult = <-store.Channel().GetPublicChannelsByIdsForTeam(teamId1, cids)
+	list = cresult.Data.(*model.ChannelList)
+
+	if len(*list) != 1 {
+		t.Fatal("should return 1 channel")
+	}
+
+	oc4 := model.Channel{}
+	oc4.TeamId = teamId1
+	oc4.DisplayName = "OpenChannel4Team1"
+	oc4.Name = "a" + model.NewId() + "b"
+	oc4.Type = model.CHANNEL_OPEN
+	Must(store.Channel().Save(&oc4))
+
+	cids = append(cids, oc4.Id)
+	cresult = <-store.Channel().GetPublicChannelsByIdsForTeam(teamId1, cids)
+	list = cresult.Data.(*model.ChannelList)
+
+	if len(*list) != 2 {
+		t.Fatal("should return 2 channels")
+	}
+
+	if (*list)[0].Id != oc1.Id {
+		t.Fatal("missing channel")
+	}
+
+	if (*list)[1].Id != oc4.Id {
+		t.Fatal("missing channel")
+	}
+
+	cids = cids[:0]
+	cids = append(cids, model.NewId())
+	cresult = <-store.Channel().GetPublicChannelsByIdsForTeam(teamId1, cids)
+	list = cresult.Data.(*model.ChannelList)
+
+	if len(*list) != 0 {
+		t.Fatal("should not return a channel")
+	}
+}
+
 func TestChannelStoreGetChannelCounts(t *testing.T) {
 	Setup()
 
@@ -1092,6 +1195,37 @@ func TestChannelStoreIncrementMentionCount(t *testing.T) {
 	}
 }
 
+func TestUpdateChannelMember(t *testing.T) {
+	Setup()
+
+	userId := model.NewId()
+
+	c1 := &model.Channel{
+		TeamId:      model.NewId(),
+		DisplayName: model.NewId(),
+		Name:        model.NewId(),
+		Type:        model.CHANNEL_OPEN,
+	}
+	Must(store.Channel().Save(c1))
+
+	m1 := &model.ChannelMember{
+		ChannelId:   c1.Id,
+		UserId:      userId,
+		NotifyProps: model.GetDefaultChannelNotifyProps(),
+	}
+	Must(store.Channel().SaveMember(m1))
+
+	m1.NotifyProps["test"] = "sometext"
+	if result := <-store.Channel().UpdateMember(m1); result.Err != nil {
+		t.Fatal(result.Err)
+	}
+
+	m1.UserId = ""
+	if result := <-store.Channel().UpdateMember(m1); result.Err == nil {
+		t.Fatal("bad user id - should fail")
+	}
+}
+
 func TestGetMember(t *testing.T) {
 	Setup()
 
@@ -1150,6 +1284,26 @@ func TestGetMember(t *testing.T) {
 	} else if member.UserId != userId {
 		t.Fatal("should've gotten member for user")
 	}
+
+	if result := <-store.Channel().GetAllChannelMembersNotifyPropsForChannel(c2.Id, false); result.Err != nil {
+		t.Fatal(result.Err)
+	} else {
+		props := result.Data.(map[string]model.StringMap)
+		if len(props) == 0 {
+			t.Fatal("should not be empty")
+		}
+	}
+
+	if result := <-store.Channel().GetAllChannelMembersNotifyPropsForChannel(c2.Id, true); result.Err != nil {
+		t.Fatal(result.Err)
+	} else {
+		props := result.Data.(map[string]model.StringMap)
+		if len(props) == 0 {
+			t.Fatal("should not be empty")
+		}
+	}
+
+	store.Channel().InvalidateCacheForChannelMembersNotifyProps(c2.Id)
 }
 
 func TestChannelStoreGetMemberForPost(t *testing.T) {

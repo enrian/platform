@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 package store
@@ -619,6 +619,56 @@ func (s SqlChannelStore) GetPublicChannelsForTeam(teamId string, offset int, lim
 	return storeChannel
 }
 
+func (s SqlChannelStore) GetPublicChannelsByIdsForTeam(teamId string, channelIds []string) StoreChannel {
+	storeChannel := make(StoreChannel, 1)
+
+	go func() {
+		result := StoreResult{}
+
+		props := make(map[string]interface{})
+		props["teamId"] = teamId
+
+		idQuery := ""
+
+		for index, channelId := range channelIds {
+			if len(idQuery) > 0 {
+				idQuery += ", "
+			}
+
+			props["channelId"+strconv.Itoa(index)] = channelId
+			idQuery += ":channelId" + strconv.Itoa(index)
+		}
+
+		data := &model.ChannelList{}
+		_, err := s.GetReplica().Select(data,
+			`SELECT
+			    *
+			FROM
+			    Channels
+			WHERE
+			    TeamId = :teamId
+					AND Type = 'O'
+					AND DeleteAt = 0
+					AND Id IN (`+idQuery+`)
+			ORDER BY DisplayName`,
+			props)
+
+		if err != nil {
+			result.Err = model.NewLocAppError("SqlChannelStore.GetPublicChannelsByIdsForTeam", "store.sql_channel.get_channels_by_ids.get.app_error", nil, err.Error())
+		}
+
+		if len(*data) == 0 {
+			result.Err = model.NewAppError("SqlChannelStore.GetPublicChannelsByIdsForTeam", "store.sql_channel.get_channels_by_ids.not_found.app_error", nil, "", http.StatusNotFound)
+		}
+
+		result.Data = data
+		storeChannel <- result
+		close(storeChannel)
+	}()
+
+	return storeChannel
+}
+
 type channelIdWithCountAndUpdateAt struct {
 	Id            string
 	TotalMsgCount int64
@@ -1198,58 +1248,6 @@ func (s SqlChannelStore) PermanentDeleteMembersByUser(userId string) StoreChanne
 
 		if _, err := s.GetMaster().Exec("DELETE FROM ChannelMembers WHERE UserId = :UserId", map[string]interface{}{"UserId": userId}); err != nil {
 			result.Err = model.NewLocAppError("SqlChannelStore.RemoveMember", "store.sql_channel.permanent_delete_members_by_user.app_error", nil, "user_id="+userId+", "+err.Error())
-		}
-
-		storeChannel <- result
-		close(storeChannel)
-	}()
-
-	return storeChannel
-}
-
-func (s SqlChannelStore) SetLastViewedAt(channelId string, userId string, newLastViewedAt int64) StoreChannel {
-	storeChannel := make(StoreChannel, 1)
-
-	go func() {
-		result := StoreResult{}
-
-		var query string
-
-		if utils.Cfg.SqlSettings.DriverName == model.DATABASE_DRIVER_POSTGRES {
-			query = `UPDATE
-				ChannelMembers
-			SET
-			    MentionCount = 0,
-			    MsgCount = Channels.TotalMsgCount - (SELECT COUNT(*)
-			    					 FROM Posts
-			    					 WHERE ChannelId = :ChannelId
-			    					 AND CreateAt > :NewLastViewedAt),
-			    LastViewedAt = :NewLastViewedAt
-			FROM
-				Channels
-			WHERE
-			    Channels.Id = ChannelMembers.ChannelId
-			        AND UserId = :UserId
-			        AND ChannelId = :ChannelId`
-		} else if utils.Cfg.SqlSettings.DriverName == model.DATABASE_DRIVER_MYSQL {
-			query = `UPDATE
-				ChannelMembers, Channels
-			SET
-			    ChannelMembers.MentionCount = 0,
-			    ChannelMembers.MsgCount = Channels.TotalMsgCount - (SELECT COUNT(*)
-										FROM Posts
-										WHERE ChannelId = :ChannelId
-										AND CreateAt > :NewLastViewedAt),
-			    ChannelMembers.LastViewedAt = :NewLastViewedAt
-			WHERE
-			    Channels.Id = ChannelMembers.ChannelId
-			        AND UserId = :UserId
-			        AND ChannelId = :ChannelId`
-		}
-
-		_, err := s.GetMaster().Exec(query, map[string]interface{}{"ChannelId": channelId, "UserId": userId, "NewLastViewedAt": newLastViewedAt})
-		if err != nil {
-			result.Err = model.NewLocAppError("SqlChannelStore.SetLastViewedAt", "store.sql_channel.set_last_viewed_at.app_error", nil, "channel_id="+channelId+", user_id="+userId+", "+err.Error())
 		}
 
 		storeChannel <- result

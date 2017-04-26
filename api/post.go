@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 package api
@@ -60,7 +60,7 @@ func createPost(c *Context, w http.ResponseWriter, r *http.Request) {
 		post.CreateAt = 0
 	}
 
-	rp, err := app.CreatePostAsUser(post, c.GetSiteURL())
+	rp, err := app.CreatePostAsUser(post)
 	if err != nil {
 		c.Err = err
 		return
@@ -84,7 +84,7 @@ func updatePost(c *Context, w http.ResponseWriter, r *http.Request) {
 
 	post.UserId = c.Session.UserId
 
-	rpost, err := app.UpdatePost(post)
+	rpost, err := app.UpdatePost(post, true)
 	if err != nil {
 		c.Err = err
 		return
@@ -161,7 +161,12 @@ func getFlaggedPosts(c *Context, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if posts, err := app.GetFlaggedPosts(c.Session.UserId, offset, limit); err != nil {
+	if !app.SessionHasPermissionToTeam(c.Session, c.TeamId, model.PERMISSION_VIEW_TEAM) {
+		c.SetPermissionError(model.PERMISSION_VIEW_TEAM)
+		return
+	}
+
+	if posts, err := app.GetFlaggedPostsForTeam(c.Session.UserId, c.TeamId, offset, limit); err != nil {
 		c.Err = err
 		return
 	} else {
@@ -339,7 +344,7 @@ func getPermalinkTmp(c *Context, w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if list, err := app.GetPermalinkPost(postId, c.Session.UserId, c.GetSiteURL()); err != nil {
+	if list, err := app.GetPermalinkPost(postId, c.Session.UserId); err != nil {
 		c.Err = err
 		return
 	} else if HandleEtag(list.Etag(), "Get Permalink TMP", w, r) {

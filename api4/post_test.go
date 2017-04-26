@@ -1,10 +1,11 @@
-// Copyright (c) 2017 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2017-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 package api4
 
 import (
 	"net/http"
+	"reflect"
 	"strconv"
 	"testing"
 	"time"
@@ -22,6 +23,7 @@ func TestCreatePost(t *testing.T) {
 	post := &model.Post{ChannelId: th.BasicChannel.Id, Message: "#hashtag a" + model.NewId() + "a"}
 	rpost, resp := Client.CreatePost(post)
 	CheckNoError(t, resp)
+	CheckCreatedStatus(t, resp)
 
 	if rpost.Message != post.Message {
 		t.Fatal("message didn't match")
@@ -165,6 +167,190 @@ func TestUpdatePost(t *testing.T) {
 	Client.Logout()
 	_, resp = Client.UpdatePost(rpost.Id, rpost)
 	CheckUnauthorizedStatus(t, resp)
+
+	th.LoginBasic2()
+	_, resp = Client.UpdatePost(rpost.Id, rpost)
+	CheckForbiddenStatus(t, resp)
+
+	Client.Logout()
+
+	_, resp = th.SystemAdminClient.UpdatePost(rpost.Id, rpost)
+	CheckNoError(t, resp)
+}
+
+func TestPatchPost(t *testing.T) {
+	th := Setup().InitBasic().InitSystemAdmin()
+	defer TearDown()
+	Client := th.Client
+	channel := th.BasicChannel
+
+	isLicensed := utils.IsLicensed
+	license := utils.License
+	allowEditPost := *utils.Cfg.ServiceSettings.AllowEditPost
+	defer func() {
+		utils.IsLicensed = isLicensed
+		utils.License = license
+		*utils.Cfg.ServiceSettings.AllowEditPost = allowEditPost
+		utils.SetDefaultRolesBasedOnConfig()
+	}()
+	utils.IsLicensed = true
+	utils.License = &model.License{Features: &model.Features{}}
+	utils.License.Features.SetDefaults()
+
+	*utils.Cfg.ServiceSettings.AllowEditPost = model.ALLOW_EDIT_POST_ALWAYS
+	utils.SetDefaultRolesBasedOnConfig()
+
+	post := &model.Post{
+		ChannelId:    channel.Id,
+		IsPinned:     true,
+		Message:      "#hashtag a message",
+		Props:        model.StringInterface{"channel_header": "old_header"},
+		FileIds:      model.StringArray{"file1", "file2"},
+		HasReactions: true,
+	}
+	post, _ = Client.CreatePost(post)
+
+	patch := &model.PostPatch{}
+
+	patch.IsPinned = new(bool)
+	*patch.IsPinned = false
+	patch.Message = new(string)
+	*patch.Message = "#otherhashtag other message"
+	patch.Props = new(model.StringInterface)
+	*patch.Props = model.StringInterface{"channel_header": "new_header"}
+	patch.FileIds = new(model.StringArray)
+	*patch.FileIds = model.StringArray{"file1", "otherfile2", "otherfile3"}
+	patch.HasReactions = new(bool)
+	*patch.HasReactions = false
+
+	rpost, resp := Client.PatchPost(post.Id, patch)
+	CheckNoError(t, resp)
+
+	if rpost.IsPinned != false {
+		t.Fatal("IsPinned did not update properly")
+	}
+	if rpost.Message != "#otherhashtag other message" {
+		t.Fatal("Message did not update properly")
+	}
+	if len(rpost.Props) != 1 {
+		t.Fatal("Props did not update properly")
+	}
+	if !reflect.DeepEqual(rpost.Props, *patch.Props) {
+		t.Fatal("Props did not update properly")
+	}
+	if rpost.Hashtags != "#otherhashtag" {
+		t.Fatal("Message did not update properly")
+	}
+	if len(rpost.FileIds) != 3 {
+		t.Fatal("FileIds did not update properly")
+	}
+	if !reflect.DeepEqual(rpost.FileIds, *patch.FileIds) {
+		t.Fatal("FileIds did not update properly")
+	}
+	if rpost.HasReactions != false {
+		t.Fatal("HasReactions did not update properly")
+	}
+
+	if r, err := Client.DoApiPut("/posts/"+post.Id+"/patch", "garbage"); err == nil {
+		t.Fatal("should have errored")
+	} else {
+		if r.StatusCode != http.StatusBadRequest {
+			t.Log("actual: " + strconv.Itoa(r.StatusCode))
+			t.Log("expected: " + strconv.Itoa(http.StatusBadRequest))
+			t.Fatal("wrong status code")
+		}
+	}
+
+	_, resp = Client.PatchPost("junk", patch)
+	CheckBadRequestStatus(t, resp)
+
+	_, resp = Client.PatchPost(GenerateTestId(), patch)
+	CheckForbiddenStatus(t, resp)
+
+	Client.Logout()
+	_, resp = Client.PatchPost(post.Id, patch)
+	CheckUnauthorizedStatus(t, resp)
+
+	th.LoginBasic2()
+	_, resp = Client.PatchPost(post.Id, patch)
+	CheckForbiddenStatus(t, resp)
+
+	th.LoginTeamAdmin()
+	_, resp = Client.PatchPost(post.Id, patch)
+	CheckNoError(t, resp)
+
+	_, resp = th.SystemAdminClient.PatchPost(post.Id, patch)
+	CheckNoError(t, resp)
+}
+
+func TestPinPost(t *testing.T) {
+	th := Setup().InitBasic().InitSystemAdmin()
+	defer TearDown()
+	Client := th.Client
+
+	post := th.BasicPost
+	pass, resp := Client.PinPost(post.Id)
+	CheckNoError(t, resp)
+
+	if !pass {
+		t.Fatal("should have passed")
+	}
+
+	if rpost, err := app.GetSinglePost(post.Id); err != nil && rpost.IsPinned != true {
+		t.Fatal("failed to pin post")
+	}
+
+	pass, resp = Client.PinPost("junk")
+	CheckBadRequestStatus(t, resp)
+
+	if pass {
+		t.Fatal("should have failed")
+	}
+
+	_, resp = Client.PinPost(GenerateTestId())
+	CheckForbiddenStatus(t, resp)
+
+	Client.Logout()
+	_, resp = Client.PinPost(post.Id)
+	CheckUnauthorizedStatus(t, resp)
+
+	_, resp = th.SystemAdminClient.PinPost(post.Id)
+	CheckNoError(t, resp)
+}
+
+func TestUnpinPost(t *testing.T) {
+	th := Setup().InitBasic().InitSystemAdmin()
+	defer TearDown()
+	Client := th.Client
+
+	pinnedPost := th.CreatePinnedPost()
+	pass, resp := Client.UnpinPost(pinnedPost.Id)
+	CheckNoError(t, resp)
+
+	if !pass {
+		t.Fatal("should have passed")
+	}
+
+	if rpost, err := app.GetSinglePost(pinnedPost.Id); err != nil && rpost.IsPinned != false {
+		t.Fatal("failed to pin post")
+	}
+
+	pass, resp = Client.UnpinPost("junk")
+	CheckBadRequestStatus(t, resp)
+
+	if pass {
+		t.Fatal("should have failed")
+	}
+
+	_, resp = Client.UnpinPost(GenerateTestId())
+	CheckForbiddenStatus(t, resp)
+
+	Client.Logout()
+	_, resp = Client.UnpinPost(pinnedPost.Id)
+	CheckUnauthorizedStatus(t, resp)
+
+	_, resp = th.SystemAdminClient.UnpinPost(pinnedPost.Id)
+	CheckNoError(t, resp)
 }
 
 func TestGetPostsForChannel(t *testing.T) {
@@ -270,6 +456,187 @@ func TestGetPostsForChannel(t *testing.T) {
 	CheckUnauthorizedStatus(t, resp)
 
 	_, resp = th.SystemAdminClient.GetPostsForChannel(th.BasicChannel.Id, 0, 60, "")
+	CheckNoError(t, resp)
+}
+
+func TestGetFlaggedPostsForUser(t *testing.T) {
+	th := Setup().InitBasic().InitSystemAdmin()
+	defer TearDown()
+	Client := th.Client
+	user := th.BasicUser
+	team1 := th.BasicTeam
+	channel1 := th.BasicChannel
+	post1 := th.CreatePost()
+	channel2 := th.CreatePublicChannel()
+	post2 := th.CreatePostWithClient(Client, channel2)
+
+	preference := model.Preference{
+		UserId:   user.Id,
+		Category: model.PREFERENCE_CATEGORY_FLAGGED_POST,
+		Name:     post1.Id,
+		Value:    "true",
+	}
+	Client.UpdatePreferences(user.Id, &model.Preferences{preference})
+	preference.Name = post2.Id
+	Client.UpdatePreferences(user.Id, &model.Preferences{preference})
+
+	opl := model.NewPostList()
+	opl.AddPost(post1)
+	opl.AddOrder(post1.Id)
+
+	rpl, resp := Client.GetFlaggedPostsForUserInChannel(user.Id, channel1.Id, 0, 10)
+	CheckNoError(t, resp)
+
+	if len(rpl.Posts) != 1 {
+		t.Fatal("should have returned 1 post")
+	}
+
+	if !reflect.DeepEqual(rpl.Posts, opl.Posts) {
+		t.Fatal("posts should have matched")
+	}
+
+	rpl, resp = Client.GetFlaggedPostsForUserInChannel(user.Id, channel1.Id, 0, 1)
+	CheckNoError(t, resp)
+
+	if len(rpl.Posts) != 1 {
+		t.Fatal("should have returned 1 post")
+	}
+
+	rpl, resp = Client.GetFlaggedPostsForUserInChannel(user.Id, channel1.Id, 1, 1)
+	CheckNoError(t, resp)
+
+	if len(rpl.Posts) != 0 {
+		t.Fatal("should be empty")
+	}
+
+	rpl, resp = Client.GetFlaggedPostsForUserInChannel(user.Id, GenerateTestId(), 0, 10)
+	CheckNoError(t, resp)
+
+	if len(rpl.Posts) != 0 {
+		t.Fatal("should be empty")
+	}
+
+	rpl, resp = Client.GetFlaggedPostsForUserInChannel(user.Id, "junk", 0, 10)
+	CheckBadRequestStatus(t, resp)
+
+	if rpl != nil {
+		t.Fatal("should be nil")
+	}
+
+	opl.AddPost(post2)
+	opl.AddOrder(post2.Id)
+
+	rpl, resp = Client.GetFlaggedPostsForUserInTeam(user.Id, team1.Id, 0, 10)
+	CheckNoError(t, resp)
+
+	if len(rpl.Posts) != 2 {
+		t.Fatal("should have returned 2 posts")
+	}
+
+	if !reflect.DeepEqual(rpl.Posts, opl.Posts) {
+		t.Fatal("posts should have matched")
+	}
+
+	rpl, resp = Client.GetFlaggedPostsForUserInTeam(user.Id, team1.Id, 0, 1)
+	CheckNoError(t, resp)
+
+	if len(rpl.Posts) != 1 {
+		t.Fatal("should have returned 1 post")
+	}
+
+	rpl, resp = Client.GetFlaggedPostsForUserInTeam(user.Id, team1.Id, 1, 1)
+	CheckNoError(t, resp)
+
+	if len(rpl.Posts) != 1 {
+		t.Fatal("should have returned 1 post")
+	}
+
+	rpl, resp = Client.GetFlaggedPostsForUserInTeam(user.Id, team1.Id, 1000, 10)
+	CheckNoError(t, resp)
+
+	if len(rpl.Posts) != 0 {
+		t.Fatal("should be empty")
+	}
+
+	rpl, resp = Client.GetFlaggedPostsForUserInTeam(user.Id, GenerateTestId(), 0, 10)
+	CheckNoError(t, resp)
+
+	if len(rpl.Posts) != 0 {
+		t.Fatal("should be empty")
+	}
+
+	rpl, resp = Client.GetFlaggedPostsForUserInTeam(user.Id, "junk", 0, 10)
+	CheckBadRequestStatus(t, resp)
+
+	if rpl != nil {
+		t.Fatal("should be nil")
+	}
+
+	channel3 := th.CreatePrivateChannel()
+	post4 := th.CreatePostWithClient(Client, channel3)
+
+	preference.Name = post4.Id
+	Client.UpdatePreferences(user.Id, &model.Preferences{preference})
+
+	opl.AddPost(post4)
+	opl.AddOrder(post4.Id)
+
+	rpl, resp = Client.GetFlaggedPostsForUser(user.Id, 0, 10)
+	CheckNoError(t, resp)
+
+	if len(rpl.Posts) != 3 {
+		t.Fatal("should have returned 3 posts")
+	}
+
+	if !reflect.DeepEqual(rpl.Posts, opl.Posts) {
+		t.Fatal("posts should have matched")
+	}
+
+	rpl, resp = Client.GetFlaggedPostsForUser(user.Id, 0, 2)
+	CheckNoError(t, resp)
+
+	if len(rpl.Posts) != 2 {
+		t.Fatal("should have returned 2 posts")
+	}
+
+	rpl, resp = Client.GetFlaggedPostsForUser(user.Id, 2, 2)
+	CheckNoError(t, resp)
+
+	if len(rpl.Posts) != 1 {
+		t.Fatal("should have returned 1 post")
+	}
+
+	rpl, resp = Client.GetFlaggedPostsForUser(user.Id, 1000, 10)
+	CheckNoError(t, resp)
+
+	if len(rpl.Posts) != 0 {
+		t.Fatal("should be empty")
+	}
+
+	_, resp = Client.GetFlaggedPostsForUser("junk", 0, 10)
+	CheckBadRequestStatus(t, resp)
+
+	_, resp = Client.GetFlaggedPostsForUser(GenerateTestId(), 0, 10)
+	CheckForbiddenStatus(t, resp)
+
+	Client.Logout()
+
+	rpl, resp = Client.GetFlaggedPostsForUserInChannel(user.Id, channel1.Id, 0, 10)
+	CheckUnauthorizedStatus(t, resp)
+
+	rpl, resp = Client.GetFlaggedPostsForUserInTeam(user.Id, team1.Id, 0, 10)
+	CheckUnauthorizedStatus(t, resp)
+
+	rpl, resp = Client.GetFlaggedPostsForUser(user.Id, 0, 10)
+	CheckUnauthorizedStatus(t, resp)
+
+	rpl, resp = th.SystemAdminClient.GetFlaggedPostsForUserInChannel(user.Id, channel1.Id, 0, 10)
+	CheckNoError(t, resp)
+
+	rpl, resp = th.SystemAdminClient.GetFlaggedPostsForUserInTeam(user.Id, team1.Id, 0, 10)
+	CheckNoError(t, resp)
+
+	rpl, resp = th.SystemAdminClient.GetFlaggedPostsForUser(user.Id, 0, 10)
 	CheckNoError(t, resp)
 }
 

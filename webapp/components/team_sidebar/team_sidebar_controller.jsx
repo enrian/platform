@@ -1,4 +1,4 @@
-// Copyright (c) 2016 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2016-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 import TeamButton from './components/team_button.jsx';
@@ -7,6 +7,7 @@ import TeamStore from 'stores/team_store.jsx';
 import UserStore from 'stores/user_store.jsx';
 
 import * as AsyncClient from 'utils/async_client.jsx';
+import {sortTeamsByDisplayName} from 'utils/team_utils.jsx';
 import * as Utils from 'utils/utils.jsx';
 
 import $ from 'jquery';
@@ -118,7 +119,7 @@ export default class TeamSidebar extends React.Component {
         }
 
         const teams = myTeams.
-            sort(Utils.sortTeamsByDisplayName).
+            sort(sortTeamsByDisplayName).
             map((team) => {
                 return (
                     <TeamButton

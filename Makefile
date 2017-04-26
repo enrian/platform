@@ -148,11 +148,6 @@ stop-docker:
 		docker stop mattermost-openldap > /dev/null; \
 	fi
 
-	@if [ $(shell docker ps -a | grep -ci mattermost-webrtc) -eq 1 ]; then \
-		echo stopping mattermost-webrtc; \
-		docker stop mattermost-webrtc > /dev/null; \
-	fi
-
 	@if [ $(shell docker ps -a | grep -ci mattermost-inbucket) -eq 1 ]; then \
 		echo stopping mattermost-inbucket; \
 		docker stop mattermost-inbucket > /dev/null; \
@@ -177,12 +172,6 @@ clean-docker:
 		echo removing mattermost-openldap; \
 		docker stop mattermost-openldap > /dev/null; \
 		docker rm -v mattermost-openldap > /dev/null; \
-	fi
-
-	@if [ $(shell docker ps -a | grep -ci mattermost-webrtc) -eq 1 ]; then \
-		echo removing mattermost-webrtc; \
-		docker stop mattermost-webrtc > /dev/null; \
-		docker rm -v mattermost-webrtc > /dev/null; \
 	fi
 
 	@if [ $(shell docker ps -a | grep -ci mattermost-inbucket) -eq 1 ]; then \
@@ -210,10 +199,44 @@ check-server-style: govet
 
 check-style: check-client-style check-server-style
 
-test-te: start-docker prepare-enterprise
+test-te-race: start-docker prepare-enterprise
+	@echo Testing TE race conditions
+
+	@echo "Packages to test: "$(TE_PACKAGES)
+
+	@for package in $(TE_PACKAGES); do \
+		echo "Testing "$$package; \
+		$(GO) test $(GOFLAGS) -race -run=$(TESTS) -test.timeout=4000s $$package || exit 1; \
+	done
+
+test-ee-race: start-docker prepare-enterprise
+	@echo Testing EE race conditions
+
+ifeq ($(BUILD_ENTERPRISE_READY),true)
+	@echo "Packages to test: "$(EE_PACKAGES)
+
+	for package in $(EE_PACKAGES); do \
+		echo "Testing "$$package; \
+		$(GO) test $(GOFLAGS) -race -run=$(TESTS) -c $$package; \
+		if [ -f $$(basename $$package).test ]; then \
+			echo "Testing "$$package; \
+			./$$(basename $$package).test -test.timeout=2000s || exit 1; \
+			rm -r $$(basename $$package).test; \
+		fi; \
+	done
+
+	rm -f config/*.crt
+	rm -f config/*.key
+endif
+
+test-server-race: test-te-race test-ee-race
+
+do-cover-file:
+	@echo "mode: count" > cover.out
+
+test-te: start-docker prepare-enterprise do-cover-file
 	@echo Testing TE
 
-	@echo "mode: count" > cover.out
 
 	@echo "Packages to test: "$(TE_PACKAGES)
 
@@ -226,7 +249,23 @@ test-te: start-docker prepare-enterprise
 		fi; \
 	done
 
-test-ee: start-docker prepare-enterprise
+test-postgres: start-docker prepare-enterprise
+	@echo Testing Postgres
+
+	@sed -i'' -e 's|"DriverName": "mysql"|"DriverName": "postgres"|g' config/config.json
+	@sed -i'' -e 's|"DataSource": "mmuser:mostest@tcp(dockerhost:3306)/mattermost_test?charset=utf8mb4,utf8"|"DataSource": "postgres://mmuser:mostest@dockerhost:5432?sslmode=disable"|g' config/config.json
+
+	$(GO) test $(GOFLAGS) -run=$(TESTS) -test.v -test.timeout=2000s -covermode=count -coverprofile=cprofile.out -coverpkg=$(ALL_PACKAGES_COMMA) github.com/mattermost/platform/store || exit 1; \
+	if [ -f cprofile.out ]; then \
+		tail -n +2 cprofile.out >> cover.out; \
+		rm cprofile.out; \
+	fi; \
+
+	@sed -i'' -e 's|"DataSource": "postgres://mmuser:mostest@dockerhost:5432?sslmode=disable"|"DataSource": "mmuser:mostest@tcp(dockerhost:3306)/mattermost_test?charset=utf8mb4,utf8"|g' config/config.json
+	@sed -i'' -e 's|"DriverName": "postgres"|"DriverName": "mysql"|g' config/config.json
+	@rm config/config.json-e
+
+test-ee: start-docker prepare-enterprise do-cover-file
 	@echo Testing EE
 
 ifeq ($(BUILD_ENTERPRISE_READY),true)
@@ -323,6 +362,7 @@ package: build build-client
 
 	@# Disable developer settings
 	sed -i'' -e 's|"ConsoleLevel": "DEBUG"|"ConsoleLevel": "INFO"|g' $(DIST_PATH)/config/config.json
+	sed -i'' -e 's|"SiteURL": "http://localhost:8065"|"SiteURL": ""|g' $(DIST_PATH)/config/config.json
 
 	@# Reset email sending to original configuration
 	sed -i'' -e 's|"SendEmailNotifications": true,|"SendEmailNotifications": false,|g' $(DIST_PATH)/config/config.json
@@ -386,7 +426,7 @@ run-server: prepare-enterprise start-docker
 	@echo Running mattermost for development
 
 	mkdir -p $(BUILD_WEBAPP_DIR)/dist/files
-	$(GO) run $(GOFLAGS) $(GO_LINKER_FLAGS) ./cmd/platform/*.go &
+	$(GO) run $(GOFLAGS) $(GO_LINKER_FLAGS) ./cmd/platform/*.go --disableconfigwatch &
 
 run-cli: prepare-enterprise start-docker
 	@echo Running mattermost for development

@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 import Suggestion from './suggestion.jsx';
@@ -67,7 +67,9 @@ export default class SwitchChannelProvider extends Provider {
 
             autocompleteUsers(
                 channelPrefix,
-                (users) => {
+                (data) => {
+                    const users = Object.assign([], data.users);
+
                     if (this.shouldCancelDispatch(channelPrefix)) {
                         return;
                     }

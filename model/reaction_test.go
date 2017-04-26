@@ -1,4 +1,4 @@
-// Copyright (c) 2016 Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2016-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
 package model
@@ -54,6 +54,21 @@ func TestReactionIsValid(t *testing.T) {
 
 	reaction.EmojiName = strings.Repeat("a", 64)
 	if err := reaction.IsValid(); err != nil {
+		t.Fatal(err)
+	}
+
+	reaction.EmojiName = "emoji-"
+	if err := reaction.IsValid(); err != nil {
+		t.Fatal(err)
+	}
+
+	reaction.EmojiName = "emoji_"
+	if err := reaction.IsValid(); err != nil {
+		t.Fatal(err)
+	}
+
+	reaction.EmojiName = "emoji:"
+	if err := reaction.IsValid(); err == nil {
 		t.Fatal(err)
 	}
 
